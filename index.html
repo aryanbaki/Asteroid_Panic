@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asteroid Panic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="hud" aria-label="Game status">
+        <div>
+          <span class="label">Wave</span>
+          <strong id="wave">1</strong>
+        </div>
+        <div>
+          <span class="label">Level</span>
+          <strong id="level">1</strong>
+        </div>
+        <div>
+          <span class="label">Crystals</span>
+          <strong id="crystals">0</strong>
+        </div>
+        <div>
+          <span class="label">HP</span>
+          <strong id="health">100</strong>
+        </div>
+      </section>
+
+      <div class="arena-wrap">
+        <canvas id="game" width="960" height="600" aria-label="Asteroid Panic game arena"></canvas>
+        <div id="overlay" class="overlay">
+          <h1>Asteroid Panic</h1>
+          <p>Survive waves, collect crystals, and upgrade between rounds.</p>
+          <button id="startButton" type="button">Start Game</button>
+        </div>
+      </div>
+
+      <section class="meters" aria-label="Player meters">
+        <div class="meter">
+          <span>Health</span>
+          <div class="bar"><i id="healthBar"></i></div>
+        </div>
+        <div class="meter">
+          <span>XP</span>
+          <div class="bar xp"><i id="xpBar"></i></div>
+        </div>
+        <div class="meter">
+          <span>Wave</span>
+          <div class="bar wave"><i id="waveBar"></i></div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="keys">
+          <kbd>WASD</kbd>
+          <kbd>Arrow Keys</kbd>
+          <span>Move</span>
+        </div>
+        <button id="pauseButton" type="button" title="Pause or resume">Pause</button>
+        <button id="restartButton" type="button" title="Restart game">Restart</button>
+      </section>
+
+      <div id="touchStick" class="touch-stick" aria-hidden="true">
+        <span></span>
+      </div>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
