@@ -42,10 +42,17 @@ button {
   font: inherit;
   min-height: 42px;
   padding: 0 18px;
+  transform: translateY(0) scale(1);
+  transition:
+    transform 130ms ease,
+    filter 130ms ease,
+    border-color 130ms ease,
+    box-shadow 130ms ease;
 }
 
 button:hover {
   border-color: var(--cyan);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .game-shell {
@@ -123,6 +130,19 @@ canvas {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease;
+  animation: overlayIn 260ms ease both;
+}
+
+.overlay[data-screen="victory"] {
+  background:
+    radial-gradient(circle at 50% 34%, rgba(119, 239, 143, 0.2), transparent 18rem),
+    rgba(6, 7, 11, 0.7);
+}
+
+.overlay[data-screen="defeat"] {
+  background:
+    radial-gradient(circle at 50% 36%, rgba(255, 90, 107, 0.24), transparent 16rem),
+    rgba(6, 7, 11, 0.82);
 }
 
 .overlay.hidden {
@@ -133,6 +153,7 @@ canvas {
   margin: 0;
   font-size: clamp(2rem, 8vw, 5.2rem);
   letter-spacing: 0;
+  animation: titleFloat 4.5s ease-in-out infinite;
 }
 
 .overlay p {
@@ -155,6 +176,7 @@ canvas {
   border-radius: 8px;
   background: rgba(16, 21, 34, 0.72);
   text-align: left;
+  animation: cardIn 320ms ease both;
 }
 
 .how-to strong,
@@ -179,7 +201,7 @@ canvas {
   color: #04121c;
   font-weight: 800;
   box-shadow: 0 10px 26px rgba(67, 213, 255, 0.18);
-  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+  animation: buttonPulse 2.8s ease-in-out infinite;
 }
 
 .overlay button:hover,
@@ -222,6 +244,8 @@ canvas {
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(32, 42, 62, 0.92), rgba(17, 23, 36, 0.92));
   text-align: left;
+  transform-origin: center;
+  animation: cardIn 320ms ease both;
 }
 
 .screen-card strong,
@@ -251,6 +275,83 @@ canvas {
 
 .setting-row input {
   width: 150px;
+}
+
+.screen-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.screen-fx i {
+  position: absolute;
+  display: block;
+}
+
+.celebration i {
+  width: 10px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--green);
+  top: -28px;
+  animation: confettiFall 2.4s ease-in infinite;
+}
+
+.celebration i:nth-child(1) {
+  left: 15%;
+  background: var(--cyan);
+}
+
+.celebration i:nth-child(2) {
+  left: 30%;
+  animation-delay: 0.3s;
+  background: var(--yellow);
+}
+
+.celebration i:nth-child(3) {
+  left: 45%;
+  animation-delay: 0.7s;
+}
+
+.celebration i:nth-child(4) {
+  left: 60%;
+  animation-delay: 0.15s;
+  background: #b083ff;
+}
+
+.celebration i:nth-child(5) {
+  left: 74%;
+  animation-delay: 0.55s;
+  background: var(--red);
+}
+
+.celebration i:nth-child(6) {
+  left: 88%;
+  animation-delay: 0.95s;
+  background: #f5f7fb;
+}
+
+.defeat-fx i {
+  width: 220px;
+  height: 2px;
+  left: -240px;
+  background: linear-gradient(90deg, transparent, rgba(255, 90, 107, 0.8), transparent);
+  animation: defeatSlash 1.8s ease-in-out infinite;
+}
+
+.defeat-fx i:nth-child(1) {
+  top: 32%;
+}
+
+.defeat-fx i:nth-child(2) {
+  top: 52%;
+  animation-delay: 0.35s;
+}
+
+.defeat-fx i:nth-child(3) {
+  top: 68%;
+  animation-delay: 0.8s;
 }
 
 .upgrade-list {
@@ -312,6 +413,7 @@ canvas {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--green), #c7ff6b);
+  transition: width 180ms ease;
 }
 
 .bar.xp i {
@@ -366,6 +468,88 @@ kbd {
   height: 36px;
   border-radius: 50%;
   background: rgba(67, 213, 255, 0.85);
+  transition: transform 90ms ease;
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes titleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes buttonPulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 26px rgba(67, 213, 255, 0.18);
+  }
+  50% {
+    box-shadow: 0 13px 34px rgba(67, 213, 255, 0.28);
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(72vh) rotate(520deg);
+  }
+}
+
+@keyframes defeatSlash {
+  0% {
+    opacity: 0;
+    transform: translateX(0) rotate(-16deg);
+  }
+  25%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(140vw) rotate(-16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 @media (max-width: 720px) {

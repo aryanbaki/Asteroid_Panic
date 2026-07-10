@@ -361,6 +361,8 @@ function createBackground(width, height, planetIndex) {
         y: Math.random() * height,
         r: rand(0.55, layer + 1.5),
         a: rand(0.24, 0.88),
+        twinkle: rand(0.35, 1.25),
+        phase: rand(0, TAU),
         speed: speed * rand(8, 26),
       })),
     ),
@@ -369,6 +371,7 @@ function createBackground(width, height, planetIndex) {
       y: rand(0, height),
       r: rand(120, 260),
       hue: PLANETS[planetIndex].colors[(i + 1) % 3],
+      phase: rand(0, TAU),
       drift: rand(0.04, 0.16),
     })),
     shootingStars: [],
@@ -380,8 +383,15 @@ function hideOverlay() {
   els.overlay.classList.add("hidden");
 }
 
-function setOverlay(html) {
-  els.overlay.innerHTML = html;
+function setOverlay(html, screen = "default") {
+  els.overlay.dataset.screen = screen;
+  const effects =
+    screen === "victory"
+      ? '<div class="screen-fx celebration"><i></i><i></i><i></i><i></i><i></i><i></i></div>'
+      : screen === "defeat"
+        ? '<div class="screen-fx defeat-fx"><i></i><i></i><i></i></div>'
+        : "";
+  els.overlay.innerHTML = `${effects}${html}`;
   els.overlay.classList.remove("hidden");
 }
 
@@ -660,6 +670,8 @@ function spawnBoss() {
     angle: 0,
     weakAngle: 0,
     hitFlash: 0,
+    attackTell: 0,
+    bobSeed: rand(0, TAU),
   };
   state.enemies.push(state.boss);
   state.bossAnnounced = true;
@@ -699,6 +711,8 @@ function spawnEnemy(type, x, y) {
     cooldown: rand(0.4, 1.8),
     charge: rand(0.6, 1.5),
     angle: rand(0, TAU),
+    bobSeed: rand(0, TAU),
+    attackTell: 0,
     hitFlash: 0,
     slow: 0,
     poison: 0,
@@ -900,6 +914,8 @@ function updateBoss(boss, dt) {
     boss.y += 95 * dt;
     return;
   }
+  boss.attackTell = boss.cooldown < 0.38 ? clamp(1 - boss.cooldown / 0.38, 0, 1) : 0;
+  if (boss.attackTell > 0.75 && Math.random() < dt * 18) spark(boss.x + rand(-boss.radius, boss.radius), boss.y + rand(-boss.radius * 0.5, boss.radius * 0.5), boss.color, 1);
   boss.x += Math.sin(state.time * 0.9) * 36 * dt;
   boss.cooldown -= dt;
   if (boss.cooldown > 0) return;
@@ -951,6 +967,13 @@ function updateBullets(dt) {
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
+    if (!settings.lowFx && Math.random() < 0.65) {
+      spawnParticle("trail", bullet.x - bullet.vx * 0.018, bullet.y - bullet.vy * 0.018, bullet.color, {
+        speed: 0,
+        radius: bullet.radius * 0.85,
+        life: 0.16,
+      });
+    }
     if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > canvas.clientWidth)) {
       bullet.vx *= -1;
       bullet.pierce -= 1;
@@ -964,6 +987,13 @@ function updateBullets(dt) {
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
+    if (!settings.lowFx && Math.random() < 0.45) {
+      spawnParticle("trail", bullet.x - bullet.vx * 0.018, bullet.y - bullet.vy * 0.018, bullet.color || "#ffcf5a", {
+        speed: 0,
+        radius: bullet.radius * 0.75,
+        life: 0.18,
+      });
+    }
     if (dist(bullet, state.player) < bullet.radius + state.player.radius) {
       bullet.life = 0;
       damagePlayer(10 + state.planetIndex);
@@ -1059,13 +1089,14 @@ function completePlanet() {
   saveGame();
   state.mode = "victory";
   startMusic("menu");
+  for (let i = 0; i < 48; i += 1) spawnParticle("spark", canvas.clientWidth / 2, canvas.clientHeight / 2, choose(["#77ef8f", "#ffd166", "#43d5ff", "#f5f7fb"]), { speed: rand(80, 360), radius: rand(2, 5), life: rand(0.6, 1.4) });
   setOverlay(`
     <h1>Planet Cleared</h1>
     <p>${state.planet.name} defended. Reward chest unlocked: ${reward.coins} coins, ${reward.crystals} crystals${reward.ship ? `, ${reward.ship} ship` : ""}.</p>
     <div class="menu-actions">
       ${button("Next Planet", "levels")}
       ${button("Main Menu", "menu", "secondary")}
-    </div>`);
+    </div>`, "victory");
 }
 
 function damagePlayer(amount) {
@@ -1084,7 +1115,8 @@ function damagePlayer(amount) {
     p.health = 0;
     state.mode = "gameover";
     startMusic("menu");
-    setOverlay(`<h1>Defeat</h1><p>You reached Planet ${state.planetIndex + 1}, Wave ${state.waveInPlanet}. Rewards banked this run: ${state.rewards.coins} coins and ${state.rewards.crystals} crystals.</p><div class="menu-actions">${button("Try Again", "restart")}${button("Main Menu", "menu", "secondary")}</div>`);
+    for (let i = 0; i < 34; i += 1) smoke(p.x + rand(-18, 18), p.y + rand(-18, 18), "#ff5a6b");
+    setOverlay(`<h1>Defeat</h1><p>You reached Planet ${state.planetIndex + 1}, Wave ${state.waveInPlanet}. Rewards banked this run: ${state.rewards.coins} coins and ${state.rewards.crystals} crystals.</p><div class="menu-actions">${button("Try Again", "restart")}${button("Main Menu", "menu", "secondary")}</div>`, "defeat");
   }
 }
 
@@ -1101,6 +1133,7 @@ function dropPickup(x, y, type, count) {
       value: Math.ceil(count / maxDrops),
       life: 18,
       spin: rand(0, TAU),
+      bobSeed: rand(0, TAU),
       collected: false,
     });
   }
@@ -1142,6 +1175,8 @@ function updatePickups(dt) {
 }
 
 function spawnParticle(kind, x, y, color, options = {}) {
+  const particleCap = settings.lowFx ? 220 : 560;
+  if (state.particles.length >= particleCap) return;
   const particle = pools.particles.pop() || {};
   const angle = options.angle ?? rand(0, TAU);
   const speed = options.speed ?? rand(40, 220);
@@ -1331,7 +1366,8 @@ function drawBackground(w, h) {
   ctx.save();
   ctx.globalCompositeOperation = "screen";
   for (const nebula of state.background.nebulas) {
-    const g = ctx.createRadialGradient(nebula.x, nebula.y, 0, nebula.x, nebula.y, nebula.r);
+    const pulse = 1 + Math.sin(state.time * 0.35 + nebula.phase) * 0.04;
+    const g = ctx.createRadialGradient(nebula.x, nebula.y, 0, nebula.x, nebula.y, nebula.r * pulse);
     g.addColorStop(0, `${nebula.hue}55`);
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
@@ -1343,10 +1379,10 @@ function drawBackground(w, h) {
 
   for (const layer of state.background.layers) {
     for (const star of layer) {
-      ctx.globalAlpha = star.a;
+      ctx.globalAlpha = star.a * (0.62 + Math.sin(state.time * star.twinkle + star.phase) * 0.28);
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(star.x, star.y, star.r, 0, TAU);
+      ctx.arc(star.x, star.y, star.r * (0.82 + Math.sin(state.time * star.twinkle + star.phase) * 0.18), 0, TAU);
       ctx.fill();
     }
   }
@@ -1397,8 +1433,10 @@ function drawPlanet(w, h) {
 
 function drawPlayer() {
   const p = state.player;
+  const speed = Math.hypot(p.vx, p.vy);
+  const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
   ctx.save();
-  ctx.translate(p.x, p.y);
+  ctx.translate(p.x, p.y + idleBob);
   ctx.rotate(p.angle);
   ctx.shadowBlur = 18;
   ctx.shadowColor = p.color;
@@ -1439,9 +1477,11 @@ function drawPlayer() {
 }
 
 function drawEnemy(enemy) {
+  const hover = enemy.type === "boss" ? 0 : Math.sin(state.time * 3 + enemy.bobSeed) * 3;
+  const tellShake = enemy.attackTell > 0 ? rand(-enemy.attackTell * 4, enemy.attackTell * 4) : 0;
   ctx.save();
-  ctx.translate(enemy.x, enemy.y);
-  ctx.rotate(enemy.angle);
+  ctx.translate(enemy.x + tellShake, enemy.y + hover);
+  ctx.rotate(enemy.angle + Math.sin(state.time * 1.6 + enemy.bobSeed) * 0.04);
   ctx.globalAlpha = enemy.spawnGrace > 0 ? 0.55 : 1;
   ctx.shadowBlur = enemy.hitFlash > 0 ? 22 : enemy.type === "boss" ? 18 : 8;
   ctx.shadowColor = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
@@ -1470,6 +1510,8 @@ function drawEnemy(enemy) {
 }
 
 function drawBossBody(boss) {
+  const pulse = 1 + boss.attackTell * 0.08 + Math.sin(state.time * 4) * 0.015;
+  ctx.scale(pulse, pulse);
   ctx.beginPath();
   ctx.ellipse(0, 0, boss.radius * 1.25, boss.radius * 0.76, 0, 0, TAU);
   ctx.fill();
@@ -1569,14 +1611,16 @@ function drawHealthBar(enemy) {
 }
 
 function drawPickup(pickup) {
-  const bob = Math.sin(state.time * 5 + pickup.spin) * 3;
+  const bob = Math.sin(state.time * 5 + pickup.bobSeed) * 5;
+  const scale = 1 + Math.sin(state.time * 4 + pickup.bobSeed) * 0.08;
   if (pickup.type === "coin") {
-    drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius, "#ffd166");
+    drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius * scale, "#ffd166");
     ctx.fillStyle = "#5b3d00";
     ctx.fillRect(pickup.x - 1, pickup.y + bob - 4, 2, 8);
   } else {
     ctx.save();
     ctx.translate(pickup.x, pickup.y + bob);
+    ctx.scale(scale, scale);
     ctx.rotate(pickup.spin);
     ctx.shadowBlur = 14;
     ctx.shadowColor = "#77ef8f";
