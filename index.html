@@ -31,7 +31,21 @@
         <canvas id="game" width="960" height="600" aria-label="Asteroid Panic game arena"></canvas>
         <div id="overlay" class="overlay">
           <h1>Asteroid Panic</h1>
-          <p>Survive waves, collect crystals, and upgrade between rounds.</p>
+          <p>Move around Earth, dodge aliens, and let your ship auto-shoot the closest enemy.</p>
+          <div class="how-to">
+            <div>
+              <strong>Move</strong>
+              <span>Use WASD or arrow keys. On phone/tablet, drag on the arena.</span>
+            </div>
+            <div>
+              <strong>Shoot</strong>
+              <span>Shooting is automatic. Stay alive and aim by moving near enemies.</span>
+            </div>
+            <div>
+              <strong>Upgrade</strong>
+              <span>Collect green crystals. Pick upgrades after levels and cleared waves.</span>
+            </div>
+          </div>
           <button id="startButton" type="button">Start Game</button>
         </div>
       </div>
@@ -55,8 +69,9 @@
         <div class="keys">
           <kbd>WASD</kbd>
           <kbd>Arrow Keys</kbd>
-          <span>Move</span>
+          <span>Move. Auto-shoot is always on. Collect green crystals for upgrades.</span>
         </div>
+        <button id="helpButton" type="button" title="Show how to play">Help</button>
         <button id="pauseButton" type="button" title="Pause or resume">Pause</button>
         <button id="restartButton" type="button" title="Restart game">Restart</button>
       </section>

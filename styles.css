@@ -138,6 +138,38 @@ canvas {
   color: var(--muted);
 }
 
+.how-to {
+  width: min(680px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.how-to div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(67, 213, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(16, 21, 34, 0.72);
+  text-align: left;
+}
+
+.how-to strong,
+.how-to span {
+  display: block;
+}
+
+.how-to strong {
+  margin-bottom: 5px;
+  color: var(--text);
+}
+
+.how-to span {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
 .overlay button {
   background: linear-gradient(180deg, #39d0ff, #1688ce);
   border: 0;
@@ -266,6 +298,10 @@ kbd {
 
   .keys kbd {
     display: none;
+  }
+
+  .how-to {
+    grid-template-columns: 1fr;
   }
 
   .touch-stick {

@@ -11,6 +11,7 @@ const els = {
   waveBar: document.querySelector("#waveBar"),
   overlay: document.querySelector("#overlay"),
   startButton: document.querySelector("#startButton"),
+  helpButton: document.querySelector("#helpButton"),
   pauseButton: document.querySelector("#pauseButton"),
   restartButton: document.querySelector("#restartButton"),
   touchStick: document.querySelector("#touchStick"),
@@ -102,6 +103,29 @@ function startGame() {
   requestAnimationFrame(loop);
 }
 
+function renderStartOverlay() {
+  els.overlay.innerHTML = `
+    <h1>Asteroid Panic</h1>
+    <p>Move around Earth, dodge aliens, and let your ship auto-shoot the closest enemy.</p>
+    <div class="how-to">
+      <div>
+        <strong>Move</strong>
+        <span>Use WASD or arrow keys. On phone/tablet, drag on the arena.</span>
+      </div>
+      <div>
+        <strong>Shoot</strong>
+        <span>Shooting is automatic. Stay alive and aim by moving near enemies.</span>
+      </div>
+      <div>
+        <strong>Upgrade</strong>
+        <span>Collect green crystals. Pick upgrades after levels and cleared waves.</span>
+      </div>
+    </div>
+    <button id="startButton" type="button">Start Game</button>`;
+  els.overlay.classList.remove("hidden");
+  document.querySelector("#startButton").addEventListener("click", startGame);
+}
+
 function pauseGame() {
   if (!state || state.mode === "menu" || state.mode === "gameover") return;
   state.mode = state.mode === "paused" ? "playing" : "paused";
@@ -121,6 +145,44 @@ function showOverlay(title, text, buttonText) {
     if (state.mode === "paused") pauseGame();
     else if (state.mode === "upgrade") takeUpgrade(0);
     else startGame();
+  });
+}
+
+function showHelp() {
+  const previousMode = state?.mode || "menu";
+  if (previousMode === "upgrade" || previousMode === "gameover") return;
+  if (previousMode === "playing") state.mode = "paused";
+  els.pauseButton.textContent = "Resume";
+  els.overlay.innerHTML = `
+    <h1>How to Play</h1>
+    <p>Protect Earth for as many waves as you can.</p>
+    <div class="how-to">
+      <div>
+        <strong>Move</strong>
+        <span>Use WASD or arrow keys. On touch screens, drag on the arena.</span>
+      </div>
+      <div>
+        <strong>Fight</strong>
+        <span>Your ship auto-shoots the nearest enemy. Dodge red aliens and yellow lasers.</span>
+      </div>
+      <div>
+        <strong>Level Up</strong>
+        <span>Grab green crystals, clear waves, and choose upgrades when the menu appears.</span>
+      </div>
+    </div>
+    <button id="overlayButton" type="button">Got It</button>`;
+  els.overlay.classList.remove("hidden");
+  document.querySelector("#overlayButton").addEventListener("click", () => {
+    if (previousMode === "menu") {
+      els.pauseButton.textContent = "Pause";
+      renderStartOverlay();
+      return;
+    }
+    els.overlay.classList.add("hidden");
+    state.mode = "playing";
+    els.pauseButton.textContent = "Pause";
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
   });
 }
 
@@ -618,6 +680,7 @@ function updatePointer(event) {
 }
 
 els.startButton.addEventListener("click", startGame);
+els.helpButton.addEventListener("click", showHelp);
 els.restartButton.addEventListener("click", startGame);
 els.pauseButton.addEventListener("click", pauseGame);
 

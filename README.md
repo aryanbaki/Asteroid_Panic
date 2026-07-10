@@ -4,7 +4,18 @@ A tiny top-down survival arcade game inspired by the "one more round" feeling of
 
 ## Play
 
-Open `index.html` in a browser.
+You can open `index.html` directly in a browser, or run it on localhost:
+
+```bash
+cd /Users/aryanbaki/Documents/AI-Workshop
+python3 -m http.server 4173
+```
+
+Then open:
+
+```text
+http://localhost:4173
+```
 
 ## Controls
 
