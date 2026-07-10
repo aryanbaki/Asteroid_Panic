@@ -27,3 +27,7 @@ http://localhost:4173
 ## Game Loop
 
 Asteroids and aliens drift toward Earth, the player auto-fires at the nearest threat, enemies drop crystals, and upgrades appear after levels or cleared waves. Every fifth wave introduces the Mother Ship mini boss.
+
+## Assets
+
+Art assets are loaded through `Assets/Data/AssetManifest.json` by the in-game `AssetManager`. License and attribution details are documented in `Assets/Documentation/LICENSES.md` and `Assets/Documentation/CREDITS.md`.

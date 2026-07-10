@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "sources": {
+    "gameIcons": {
+      "name": "Game-icons.net",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "site": "https://game-icons.net",
+      "notes": "SVG icons are used as a cohesive commercial-use vector sprite set. Attribution is required and documented in Assets/Documentation/LICENSES.md."
+    }
+  },
+  "images": {
+    "player.ship": {
+      "path": "Assets/Art/Player/spaceship.svg",
+      "source": "gameIcons",
+      "title": "Spaceship",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/spaceship.html"
+    },
+    "enemy.alien": {
+      "path": "Assets/Art/Aliens/alien-bug.svg",
+      "source": "gameIcons",
+      "title": "Alien Bug",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/alien-bug.html"
+    },
+    "enemy.ufo": {
+      "path": "Assets/Art/Aliens/ufo.svg",
+      "source": "gameIcons",
+      "title": "UFO",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/ufo.html"
+    },
+    "enemy.boss": {
+      "path": "Assets/Art/Bosses/alien-skull.svg",
+      "source": "gameIcons",
+      "title": "Alien Skull",
+      "author": "Lorc",
+      "url": "https://game-icons.net/1x1/lorc/alien-skull.html"
+    },
+    "world.asteroid": {
+      "path": "Assets/Art/Asteroids/asteroid.svg",
+      "source": "gameIcons",
+      "title": "Asteroid",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/asteroid.html"
+    },
+    "pickup.crystal": {
+      "path": "Assets/Art/Pickups/crystal.svg",
+      "source": "gameIcons",
+      "title": "Crystal Growth",
+      "author": "Lorc",
+      "url": "https://game-icons.net/1x1/lorc/crystal-growth.html"
+    },
+    "pickup.coin": {
+      "path": "Assets/Art/Pickups/coin.svg",
+      "source": "gameIcons",
+      "title": "Two Coins",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/two-coins.html"
+    },
+    "effect.shield": {
+      "path": "Assets/Art/Effects/shield.svg",
+      "source": "gameIcons",
+      "title": "Checked Shield",
+      "author": "Lorc",
+      "url": "https://game-icons.net/1x1/lorc/checked-shield.html"
+    },
+    "effect.explosion": {
+      "path": "Assets/Art/Explosions/explosion-rays.svg",
+      "source": "gameIcons",
+      "title": "Explosion Rays",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/explosion-rays.html"
+    },
+    "weapon.laser": {
+      "path": "Assets/Art/Weapons/laser-gun.svg",
+      "source": "gameIcons",
+      "title": "Laser Gun",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/laser-gun.html"
+    },
+    "ui.chest": {
+      "path": "Assets/Art/UI/open-treasure-chest.svg",
+      "source": "gameIcons",
+      "title": "Open Treasure Chest",
+      "author": "Delapouite",
+      "url": "https://game-icons.net/1x1/delapouite/open-treasure-chest.html"
+    }
+  },
+  "audio": {},
+  "atlases": {},
+  "animations": {}
+}

@@ -21,12 +21,85 @@ const els = {
 const TAU = Math.PI * 2;
 const SAVE_KEY = "asteroid-panic-save-v2";
 const SETTINGS_KEY = "asteroid-panic-settings-v2";
+const ASSET_MANIFEST_PATH = "Assets/Data/AssetManifest.json";
 
 const rand = (min, max) => Math.random() * (max - min) + min;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = (a, b, t) => a + (b - a) * t;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const choose = (items) => items[Math.floor(Math.random() * items.length)];
+
+class AssetManager {
+  constructor(manifestPath) {
+    this.manifestPath = manifestPath;
+    this.manifest = { images: {}, audio: {}, atlases: {}, animations: {} };
+    this.images = new Map();
+    this.failed = new Set();
+    this.ready = false;
+  }
+
+  async loadManifest() {
+    try {
+      const response = await fetch(this.manifestPath);
+      if (!response.ok) throw new Error(`Manifest HTTP ${response.status}`);
+      this.manifest = await response.json();
+      this.ready = true;
+    } catch (error) {
+      console.warn("Asset manifest unavailable; using procedural fallbacks.", error);
+      this.ready = false;
+    }
+  }
+
+  async preload(ids = Object.keys(this.manifest.images || {})) {
+    await Promise.all(ids.map((id) => this.loadImage(id)));
+  }
+
+  loadImage(id) {
+    if (this.images.has(id)) return Promise.resolve(this.images.get(id));
+    if (this.failed.has(id)) return Promise.resolve(null);
+    const entry = this.manifest.images?.[id];
+    if (!entry?.path) {
+      this.failed.add(id);
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        this.images.set(id, image);
+        resolve(image);
+      };
+      image.onerror = () => {
+        this.failed.add(id);
+        resolve(null);
+      };
+      image.src = entry.path;
+    });
+  }
+
+  getImage(id) {
+    const image = this.images.get(id);
+    if (!image && this.ready && !this.failed.has(id)) this.loadImage(id);
+    return image || null;
+  }
+
+  drawImage(ctx, id, x, y, size, options = {}) {
+    const image = this.getImage(id);
+    if (!image) return false;
+    const width = options.width || size;
+    const height = options.height || size;
+    ctx.save();
+    ctx.globalAlpha = options.alpha ?? 1;
+    ctx.translate(x, y);
+    ctx.rotate(options.rotation || 0);
+    if (options.shadowColor) {
+      ctx.shadowColor = options.shadowColor;
+      ctx.shadowBlur = options.shadowBlur ?? 12;
+    }
+    ctx.drawImage(image, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    return true;
+  }
+}
 
 const PLANETS = [
   {
@@ -172,6 +245,7 @@ let state = null;
 let save = loadSave();
 let settings = loadSettings();
 let audio = null;
+const assetManager = new AssetManager(ASSET_MANIFEST_PATH);
 
 const pools = {
   particles: [],
@@ -1435,6 +1509,13 @@ function drawPlayer() {
   const p = state.player;
   const speed = Math.hypot(p.vx, p.vy);
   const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
+  const drewShip = assetManager.drawImage(ctx, "player.ship", p.x, p.y + idleBob, 46 + p.recoil * 4, {
+    rotation: p.angle + Math.PI / 2,
+    shadowColor: p.color,
+    shadowBlur: 18,
+    alpha: p.invuln > 0 ? 0.82 : 1,
+  });
+  if (!drewShip) {
   ctx.save();
   ctx.translate(p.x, p.y + idleBob);
   ctx.rotate(p.angle);
@@ -1456,6 +1537,7 @@ function drawPlayer() {
   ctx.lineTo(-13, 6);
   ctx.fill();
   ctx.restore();
+  }
 
   if (p.shield > 0) {
     ctx.save();
@@ -1468,6 +1550,11 @@ function drawPlayer() {
     ctx.arc(p.x, p.y, p.radius + 8 + p.shieldPulse * 8, 0, TAU);
     ctx.stroke();
     ctx.restore();
+    assetManager.drawImage(ctx, "effect.shield", p.x, p.y, p.radius + 28 + p.shieldPulse * 8, {
+      shadowColor: "#77ef8f",
+      shadowBlur: 12,
+      alpha: 0.2 + p.shieldPulse * 0.18,
+    });
   }
 
   for (let i = 0; i < p.drones; i += 1) {
@@ -1479,6 +1566,8 @@ function drawPlayer() {
 function drawEnemy(enemy) {
   const hover = enemy.type === "boss" ? 0 : Math.sin(state.time * 3 + enemy.bobSeed) * 3;
   const tellShake = enemy.attackTell > 0 ? rand(-enemy.attackTell * 4, enemy.attackTell * 4) : 0;
+  const assetId = getEnemyAsset(enemy);
+  const assetSize = enemy.type === "boss" ? enemy.radius * 2.35 : enemy.radius * 2.35;
   ctx.save();
   ctx.translate(enemy.x + tellShake, enemy.y + hover);
   ctx.rotate(enemy.angle + Math.sin(state.time * 1.6 + enemy.bobSeed) * 0.04);
@@ -1486,14 +1575,16 @@ function drawEnemy(enemy) {
   ctx.shadowBlur = enemy.hitFlash > 0 ? 22 : enemy.type === "boss" ? 18 : 8;
   ctx.shadowColor = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
   ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
-  if (enemy.type === "boss") drawBossBody(enemy);
-  else if (enemy.shape === "rock") drawRock(enemy.radius, enemy.type === "asteroid" ? state.planet.asteroid : enemy.color);
-  else if (enemy.shape === "tank") drawTank(enemy.radius);
-  else if (enemy.shape === "diamond") drawDiamond(enemy.radius);
-  else if (enemy.shape === "round") drawRound(enemy.radius);
-  else if (enemy.shape === "needle") drawNeedle(enemy.radius);
-  else if (enemy.shape === "shield") drawShieldCarrier(enemy.radius);
-  else drawDart(enemy.radius);
+  if (!assetManager.drawImage(ctx, assetId, 0, 0, assetSize, { shadowColor: enemy.color, shadowBlur: enemy.type === "boss" ? 18 : 8 })) {
+    if (enemy.type === "boss") drawBossBody(enemy);
+    else if (enemy.shape === "rock") drawRock(enemy.radius, enemy.type === "asteroid" ? state.planet.asteroid : enemy.color);
+    else if (enemy.shape === "tank") drawTank(enemy.radius);
+    else if (enemy.shape === "diamond") drawDiamond(enemy.radius);
+    else if (enemy.shape === "round") drawRound(enemy.radius);
+    else if (enemy.shape === "needle") drawNeedle(enemy.radius);
+    else if (enemy.shape === "shield") drawShieldCarrier(enemy.radius);
+    else drawDart(enemy.radius);
+  }
   ctx.restore();
 
   if (enemy.shielded > 0) {
@@ -1507,6 +1598,13 @@ function drawEnemy(enemy) {
 
   if (enemy.hp < enemy.maxHp) drawHealthBar(enemy);
   if (enemy.type === "boss") drawWeakPoint(enemy);
+}
+
+function getEnemyAsset(enemy) {
+  if (enemy.type === "boss") return "enemy.boss";
+  if (enemy.type === "asteroid" || enemy.type === "splitter") return "world.asteroid";
+  if (enemy.type === "shooter" || enemy.type === "laserDrone" || enemy.type === "sniper") return "enemy.ufo";
+  return "enemy.alien";
 }
 
 function drawBossBody(boss) {
@@ -1614,10 +1712,12 @@ function drawPickup(pickup) {
   const bob = Math.sin(state.time * 5 + pickup.bobSeed) * 5;
   const scale = 1 + Math.sin(state.time * 4 + pickup.bobSeed) * 0.08;
   if (pickup.type === "coin") {
+    if (assetManager.drawImage(ctx, "pickup.coin", pickup.x, pickup.y + bob, pickup.radius * 3.6 * scale, { shadowColor: "#ffd166", shadowBlur: 12 })) return;
     drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius * scale, "#ffd166");
     ctx.fillStyle = "#5b3d00";
     ctx.fillRect(pickup.x - 1, pickup.y + bob - 4, 2, 8);
   } else {
+    if (assetManager.drawImage(ctx, "pickup.crystal", pickup.x, pickup.y + bob, pickup.radius * 3.8 * scale, { rotation: pickup.spin, shadowColor: "#77ef8f", shadowBlur: 14 })) return;
     ctx.save();
     ctx.translate(pickup.x, pickup.y + bob);
     ctx.scale(scale, scale);
@@ -1761,3 +1861,7 @@ state = makeState();
 updateHud();
 renderMenu();
 draw();
+assetManager
+  .loadManifest()
+  .then(() => assetManager.preload())
+  .then(() => draw());
