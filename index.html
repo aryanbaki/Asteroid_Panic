@@ -10,6 +10,10 @@
     <main class="game-shell">
       <section class="hud" aria-label="Game status">
         <div>
+          <span class="label">Planet</span>
+          <strong id="planet">1</strong>
+        </div>
+        <div>
           <span class="label">Wave</span>
           <strong id="wave">1</strong>
         </div>
@@ -20,6 +24,10 @@
         <div>
           <span class="label">Crystals</span>
           <strong id="crystals">0</strong>
+        </div>
+        <div>
+          <span class="label">Coins</span>
+          <strong id="coins">0</strong>
         </div>
         <div>
           <span class="label">HP</span>
@@ -46,7 +54,12 @@
               <span>Collect green crystals. Pick upgrades after levels and cleared waves.</span>
             </div>
           </div>
-          <button id="startButton" type="button">Start Game</button>
+          <div class="menu-actions">
+            <button id="startButton" type="button">Start Game</button>
+            <button id="levelButton" type="button">Level Select</button>
+            <button id="shipButton" type="button">Ships</button>
+            <button id="settingsButton" type="button">Settings</button>
+          </div>
         </div>
       </div>
 

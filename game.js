@@ -2,188 +2,602 @@ const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
 
 const els = {
+  planet: document.querySelector("#planet"),
   wave: document.querySelector("#wave"),
   level: document.querySelector("#level"),
   crystals: document.querySelector("#crystals"),
+  coins: document.querySelector("#coins"),
   health: document.querySelector("#health"),
   healthBar: document.querySelector("#healthBar"),
   xpBar: document.querySelector("#xpBar"),
   waveBar: document.querySelector("#waveBar"),
   overlay: document.querySelector("#overlay"),
-  startButton: document.querySelector("#startButton"),
-  helpButton: document.querySelector("#helpButton"),
   pauseButton: document.querySelector("#pauseButton"),
   restartButton: document.querySelector("#restartButton"),
+  helpButton: document.querySelector("#helpButton"),
   touchStick: document.querySelector("#touchStick"),
 };
 
 const TAU = Math.PI * 2;
+const SAVE_KEY = "asteroid-panic-save-v2";
+const SETTINGS_KEY = "asteroid-panic-settings-v2";
+
 const rand = (min, max) => Math.random() * (max - min) + min;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const lerp = (a, b, t) => a + (b - a) * t;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const choose = (items) => items[Math.floor(Math.random() * items.length)];
+
+const PLANETS = [
+  {
+    name: "Tutorial",
+    subtitle: "Learn the panic loop",
+    colors: ["#07111f", "#1d3c6f", "#43d5ff"],
+    asteroid: "#9aa7bd",
+    enemies: ["drone", "asteroid"],
+    mechanic: "Basic movement and auto-fire",
+    reward: { coins: 90, crystals: 18, title: "Cadet Defender" },
+    boss: "warden",
+  },
+  {
+    name: "Asteroid Belt",
+    subtitle: "Rocks split into trouble",
+    colors: ["#120f18", "#5a3f2e", "#ffd166"],
+    asteroid: "#b08968",
+    enemies: ["drone", "asteroid", "splitter"],
+    mechanic: "Splitting enemies",
+    reward: { coins: 130, crystals: 26, ship: "Comet" },
+    boss: "crusher",
+  },
+  {
+    name: "Frozen Sector",
+    subtitle: "Cold shots slow the fight",
+    colors: ["#07151b", "#18465a", "#9be7ff"],
+    asteroid: "#9ad8e8",
+    enemies: ["scout", "shooter", "tank"],
+    mechanic: "Faster enemies",
+    reward: { coins: 170, crystals: 34, color: "Ice Blue" },
+    boss: "frostmaw",
+  },
+  {
+    name: "Alien Hive",
+    subtitle: "The swarm learns patterns",
+    colors: ["#100a18", "#3b1765", "#77ef8f"],
+    asteroid: "#7f6db5",
+    enemies: ["scout", "laserDrone", "mineLayer"],
+    mechanic: "Area denial mines",
+    reward: { coins: 220, crystals: 44, weapon: "Ricochet" },
+    boss: "broodmind",
+  },
+  {
+    name: "Volcanic Planet",
+    subtitle: "Everything hits harder",
+    colors: ["#17090a", "#6f1f19", "#ff8b45"],
+    asteroid: "#d45a35",
+    enemies: ["tank", "kamikaze", "sniper"],
+    mechanic: "Chargers and snipers",
+    reward: { coins: 280, crystals: 56, trail: "Ember" },
+    boss: "magmaCore",
+  },
+  {
+    name: "Deep Space",
+    subtitle: "No safe corner",
+    colors: ["#030711", "#19203f", "#b083ff"],
+    asteroid: "#8d8aa9",
+    enemies: ["shooter", "shieldCarrier", "teleporter"],
+    mechanic: "Shielded formations",
+    reward: { coins: 350, crystals: 70, badge: "Void Runner" },
+    boss: "voidRay",
+  },
+  {
+    name: "Nebula Core",
+    subtitle: "Visibility becomes a weapon",
+    colors: ["#100719", "#751f7a", "#43d5ff"],
+    asteroid: "#de7fff",
+    enemies: ["laserDrone", "mineLayer", "teleporter", "splitter"],
+    mechanic: "Teleport ambushes",
+    reward: { coins: 430, crystals: 86, title: "Nebula Ace" },
+    boss: "prismHeart",
+  },
+  {
+    name: "Alien Homeworld",
+    subtitle: "Final invasion",
+    colors: ["#0d0812", "#214f30", "#ff5a6b"],
+    asteroid: "#5bd68f",
+    enemies: ["scout", "tank", "sniper", "shieldCarrier", "teleporter"],
+    mechanic: "Combined threats",
+    reward: { coins: 540, crystals: 110, ship: "Nova" },
+    boss: "overlord",
+  },
+];
+
+const ENEMY_TYPES = {
+  asteroid: { name: "Asteroid", hp: 34, speed: 38, radius: 28, color: "#9aa7bd", value: 2, coin: 2, xp: 2, shape: "rock" },
+  drone: { name: "Drone", hp: 18, speed: 112, radius: 14, color: "#ff5a6b", value: 1, coin: 2, xp: 2, shape: "dart" },
+  scout: { name: "Fast Scout", hp: 16, speed: 168, radius: 12, color: "#43d5ff", value: 1, coin: 3, xp: 2, shape: "dart" },
+  tank: { name: "Heavy Tank", hp: 86, speed: 54, radius: 24, color: "#b08968", value: 4, coin: 7, xp: 5, shape: "tank" },
+  shooter: { name: "Alien Shooter", hp: 34, speed: 76, radius: 17, color: "#ffd166", value: 2, coin: 5, xp: 3, shape: "kite" },
+  laserDrone: { name: "Laser Drone", hp: 38, speed: 84, radius: 16, color: "#ff5aee", value: 3, coin: 6, xp: 4, shape: "diamond" },
+  mineLayer: { name: "Mine Layer", hp: 48, speed: 66, radius: 18, color: "#ff8b45", value: 3, coin: 7, xp: 4, shape: "round" },
+  sniper: { name: "Sniper", hp: 30, speed: 54, radius: 15, color: "#f5f7fb", value: 4, coin: 8, xp: 5, shape: "needle" },
+  kamikaze: { name: "Kamikaze", hp: 30, speed: 94, radius: 16, color: "#ff4d2f", value: 3, coin: 7, xp: 4, shape: "dart" },
+  shieldCarrier: { name: "Shield Carrier", hp: 62, speed: 58, radius: 21, color: "#77ef8f", value: 4, coin: 9, xp: 5, shape: "shield" },
+  splitter: { name: "Splitter", hp: 42, speed: 72, radius: 20, color: "#c7ff6b", value: 3, coin: 7, xp: 4, shape: "rock" },
+  teleporter: { name: "Teleport Alien", hp: 36, speed: 72, radius: 17, color: "#b083ff", value: 5, coin: 10, xp: 6, shape: "diamond" },
+};
+
+const BOSSES = {
+  warden: { name: "Orbital Warden", color: "#43d5ff", hp: 520, radius: 46 },
+  crusher: { name: "Belt Crusher", color: "#ffd166", hp: 680, radius: 52 },
+  frostmaw: { name: "Frostmaw", color: "#9be7ff", hp: 760, radius: 50 },
+  broodmind: { name: "Broodmind", color: "#77ef8f", hp: 860, radius: 54 },
+  magmaCore: { name: "Magma Core", color: "#ff8b45", hp: 960, radius: 58 },
+  voidRay: { name: "Void Ray", color: "#b083ff", hp: 1080, radius: 56 },
+  prismHeart: { name: "Prism Heart", color: "#ff5aee", hp: 1240, radius: 60 },
+  overlord: { name: "Alien Overlord", color: "#ff5a6b", hp: 1500, radius: 64 },
+};
+
+const SHIPS = [
+  { name: "Pioneer", color: "#43d5ff", trail: "#77ef8f", unlock: 0, speed: 1, fire: 1 },
+  { name: "Comet", color: "#ffd166", trail: "#ff8b45", unlock: 1, speed: 1.08, fire: 0.96 },
+  { name: "Nova", color: "#ff5aee", trail: "#b083ff", unlock: 7, speed: 1.03, fire: 1.08 },
+];
+
+const UPGRADE_POOL = [
+  { id: "damage", name: "+20% Damage", desc: "All shots hit harder.", apply: (p) => (p.damage *= 1.2) },
+  { id: "rate", name: "+15% Fire Rate", desc: "Less time between shots.", apply: (p) => (p.fireRate *= 1.15) },
+  { id: "double", name: "Double Shot", desc: "Add one extra bullet.", apply: (p) => (p.bullets += 1) },
+  { id: "triple", name: "Triple Shot", desc: "Add two extra bullets.", apply: (p) => (p.bullets += 2) },
+  { id: "move", name: "+20% Movement", desc: "Accelerate and drift faster.", apply: (p) => (p.speed *= 1.2) },
+  { id: "crit", name: "Critical Hits", desc: "More chance to deal burst damage.", apply: (p) => (p.crit += 0.12) },
+  { id: "shield", name: "Shield", desc: "Gain a rechargeable shield.", apply: (p) => (p.shieldMax += 30, p.shield = p.shieldMax) },
+  { id: "magnet", name: "Magnet", desc: "Pull rewards from farther away.", apply: (p) => (p.magnet += 55) },
+  { id: "ricochet", name: "Ricochet", desc: "Shots bounce once off walls.", apply: (p) => (p.ricochet += 1) },
+  { id: "freeze", name: "Freeze Bullets", desc: "Hits briefly slow enemies.", apply: (p) => (p.freeze += 0.18) },
+  { id: "poison", name: "Poison", desc: "Shots leave damage over time.", apply: (p) => (p.poison += 4) },
+  { id: "fire", name: "Fire Damage", desc: "Burn enemies after impact.", apply: (p) => (p.burn += 5) },
+  { id: "drone", name: "Drone Companion", desc: "A helper orb fires beside you.", apply: (p) => (p.drones += 1) },
+  { id: "dash", name: "Dash", desc: "Double tap movement with smoother bursts.", apply: (p) => (p.dash += 1) },
+  { id: "emp", name: "EMP Blast", desc: "Periodic pulse damages nearby enemies.", apply: (p) => (p.emp += 1) },
+  { id: "turret", name: "Auto Turret", desc: "Earth fires a defensive shot.", apply: (p) => (p.turrets += 1) },
+  { id: "luck", name: "Lucky Drops", desc: "Enemies drop more coins and crystals.", apply: (p) => (p.luck += 0.18) },
+  { id: "boom", name: "Explosion Radius", desc: "Kills splash damage to nearby enemies.", apply: (p) => (p.explosion += 22) },
+];
 
 let keys = new Set();
 let pointerVector = { x: 0, y: 0 };
 let pointerActive = false;
 let lastTime = 0;
-let state;
+let state = null;
+let save = loadSave();
+let settings = loadSettings();
+let audio = null;
 
-const upgradePool = [
-  { name: "+20% Damage", apply: () => (state.player.damage *= 1.2) },
-  { name: "+15% Fire Rate", apply: () => (state.player.fireRate *= 1.15) },
-  { name: "+1 Bullet", apply: () => (state.player.bullets += 1) },
-  { name: "+20% Movement", apply: () => (state.player.speed *= 1.2) },
-  { name: "Critical Hits", apply: () => (state.player.crit += 0.12) },
-  { name: "Shield", apply: () => (state.player.shield = Math.min(70, state.player.shield + 35)) },
-  { name: "Magnet", apply: () => (state.player.magnet += 45) },
-  { name: "Explosion Radius", apply: () => (state.player.explosion += 15) },
-];
+const pools = {
+  particles: [],
+  numbers: [],
+};
 
-function makeState() {
-  const width = canvas.clientWidth || 960;
-  const height = canvas.clientHeight || 600;
-  return {
-    mode: "menu",
-    time: 0,
-    wave: 1,
-    killsThisWave: 0,
-    waveTarget: 12,
-    spawnTimer: 0,
-    bossSpawned: false,
-    upgradeChoices: [],
-    stars: Array.from({ length: 100 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: rand(0.5, 1.8),
-      a: rand(0.2, 0.8),
-    })),
-    player: {
-      x: width / 2,
-      y: height / 2,
-      radius: 16,
-      speed: 245,
-      health: 100,
-      maxHealth: 100,
-      shield: 0,
-      level: 1,
-      xp: 0,
-      xpNext: 8,
-      crystals: 0,
-      damage: 20,
-      fireRate: 2.8,
-      fireCooldown: 0,
-      bullets: 1,
-      crit: 0.05,
-      magnet: 82,
-      explosion: 0,
-      invuln: 0,
-    },
-    bullets: [],
-    enemyBullets: [],
-    enemies: [],
-    crystals: [],
-    particles: [],
+function loadSave() {
+  const fallback = {
+    unlockedPlanet: 0,
+    selectedPlanet: 0,
+    selectedShip: 0,
+    coins: 0,
+    crystals: 0,
+    totalXp: 0,
+    playerLevel: 1,
+    dailyClaimed: "",
+    achievements: [],
+    unlocks: ["Pioneer"],
   };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(SAVE_KEY) || "{}") };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveGame() {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+}
+
+function loadSettings() {
+  const fallback = { sound: 0.7, music: 0.35, haptics: true, lowFx: false };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function ensureAudio() {
+  if (audio) return audio;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  const context = new AudioContext();
+  const master = context.createGain();
+  const music = context.createGain();
+  master.gain.value = settings.sound;
+  music.gain.value = settings.music;
+  master.connect(context.destination);
+  music.connect(master);
+  audio = { context, master, music, musicOsc: null };
+  startMusic("menu");
+  return audio;
+}
+
+function playTone(freq, duration = 0.08, type = "sine", gain = 0.08, slide = 0) {
+  const api = ensureAudio();
+  if (!api || settings.sound <= 0) return;
+  const now = api.context.currentTime;
+  const osc = api.context.createOscillator();
+  const amp = api.context.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), now + duration);
+  amp.gain.setValueAtTime(gain * settings.sound, now);
+  amp.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.connect(amp);
+  amp.connect(api.master);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+
+function startMusic(mode) {
+  const api = ensureAudio();
+  if (!api) return;
+  if (api.musicOsc) api.musicOsc.stop();
+  const osc = api.context.createOscillator();
+  const amp = api.context.createGain();
+  osc.type = "sine";
+  osc.frequency.value = mode === "boss" ? 82 : mode === "game" ? 110 : 164;
+  amp.gain.value = 0.025 * settings.music;
+  osc.connect(amp);
+  amp.connect(api.music);
+  osc.start();
+  api.musicOsc = osc;
+}
+
+function vibrate(pattern) {
+  if (settings.haptics && navigator.vibrate) navigator.vibrate(pattern);
 }
 
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(rect.width * dpr);
-  canvas.height = Math.floor(rect.height * dpr);
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+function makeState() {
+  const width = canvas.clientWidth || 960;
+  const height = canvas.clientHeight || 600;
+  const planetIndex = clamp(save.selectedPlanet, 0, PLANETS.length - 1);
+  const ship = SHIPS[save.selectedShip] || SHIPS[0];
+  return {
+    mode: "menu",
+    screen: "menu",
+    planetIndex,
+    planet: PLANETS[planetIndex],
+    time: 0,
+    wave: 1,
+    waveInPlanet: 1,
+    waveTarget: 12,
+    killsThisWave: 0,
+    spawnTimer: 0.8,
+    boss: null,
+    bossAnnounced: false,
+    upgradeChoices: [],
+    camera: { x: 0, y: 0, shake: 0, flash: 0 },
+    background: createBackground(width, height, planetIndex),
+    player: makePlayer(width, height, ship),
+    bullets: [],
+    enemyBullets: [],
+    enemies: [],
+    mines: [],
+    pickups: [],
+    particles: [],
+    numbers: [],
+    rewards: { coins: 0, crystals: 0, score: 0 },
+    transition: 0,
+    turretCooldown: 0,
+    empCooldown: 4,
+  };
+}
+
+function makePlayer(width, height, ship) {
+  return {
+    x: width / 2,
+    y: height / 2,
+    vx: 0,
+    vy: 0,
+    angle: -Math.PI / 2,
+    recoil: 0,
+    radius: 16,
+    speed: 245 * ship.speed,
+    accel: 1620,
+    friction: 8.5,
+    health: 100,
+    maxHealth: 100,
+    shield: 25,
+    shieldMax: 25,
+    shieldPulse: 0,
+    level: 1,
+    xp: 0,
+    xpNext: 9,
+    damage: 20,
+    fireRate: 2.9 * ship.fire,
+    fireCooldown: 0,
+    bullets: 1,
+    crit: 0.06,
+    magnet: 92,
+    explosion: 0,
+    ricochet: 0,
+    freeze: 0,
+    poison: 0,
+    burn: 0,
+    drones: 0,
+    dash: 0,
+    emp: 0,
+    turrets: 0,
+    luck: 0,
+    invuln: 1.1,
+    color: ship.color,
+    trail: ship.trail,
+  };
+}
+
+function createBackground(width, height, planetIndex) {
+  return {
+    layers: [0.18, 0.36, 0.7].map((speed, layer) =>
+      Array.from({ length: settings.lowFx ? 28 : 52 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: rand(0.55, layer + 1.5),
+        a: rand(0.24, 0.88),
+        speed: speed * rand(8, 26),
+      })),
+    ),
+    nebulas: Array.from({ length: settings.lowFx ? 2 : 5 }, (_, i) => ({
+      x: rand(0, width),
+      y: rand(0, height),
+      r: rand(120, 260),
+      hue: PLANETS[planetIndex].colors[(i + 1) % 3],
+      drift: rand(0.04, 0.16),
+    })),
+    shootingStars: [],
+    shootingTimer: rand(4, 9),
+  };
+}
+
+function hideOverlay() {
+  els.overlay.classList.add("hidden");
+}
+
+function setOverlay(html) {
+  els.overlay.innerHTML = html;
+  els.overlay.classList.remove("hidden");
+}
+
+function button(label, action, className = "") {
+  return `<button type="button" class="${className}" data-action="${action}">${label}</button>`;
+}
+
+function renderMenu() {
+  if (!state) state = makeState();
+  state.mode = "menu";
+  state.screen = "menu";
+  startMusic("menu");
+  const daily = getDailyBonusText();
+  setOverlay(`
+    <h1>Asteroid Panic</h1>
+    <p>Protect Earth across eight planets. Move fast, auto-shoot, collect rewards, and stack upgrades.</p>
+    <div class="how-to">
+      <div><strong>Move</strong><span>WASD, arrow keys, or drag on mobile.</span></div>
+      <div><strong>Fight</strong><span>Your ship fires automatically at the nearest enemy.</span></div>
+      <div><strong>Grow</strong><span>Collect crystals, beat bosses, unlock ships, trails, badges, and titles.</span></div>
+    </div>
+    <div class="menu-actions">
+      ${button("Play", "play")}
+      ${button("Level Select", "levels", "secondary")}
+      ${button("Ship Select", "ships", "secondary")}
+      ${button("Store", "store", "secondary")}
+      ${button("Settings", "settings", "secondary")}
+      ${button(daily, "daily", "secondary")}
+    </div>`);
+}
+
+function renderLevelSelect() {
+  const cards = PLANETS.map((planet, index) => {
+    const locked = index > save.unlockedPlanet;
+    return `<button type="button" class="screen-card ${locked ? "locked" : ""}" data-action="${locked ? "locked" : `select-level:${index}`}">
+      <strong>${index + 1}. ${planet.name}</strong>
+      <span>${planet.subtitle}</span>
+      <span>New mechanic: ${planet.mechanic}</span>
+    </button>`;
+  }).join("");
+  setOverlay(`<h1>Level Select</h1><p>Each planet introduces one new pressure point.</p><div class="screen-grid">${cards}</div><div class="menu-actions">${button("Back", "menu", "secondary")}</div>`);
+}
+
+function renderShipSelect() {
+  const cards = SHIPS.map((ship, index) => {
+    const locked = ship.unlock > save.unlockedPlanet;
+    const selected = index === save.selectedShip ? "Selected" : "Choose";
+    return `<button type="button" class="screen-card ${locked ? "locked" : ""}" data-action="${locked ? "locked" : `select-ship:${index}`}">
+      <strong>${ship.name}</strong>
+      <span>${locked ? `Unlock on planet ${ship.unlock + 1}` : selected}</span>
+      <span>Speed x${ship.speed.toFixed(2)} | Fire x${ship.fire.toFixed(2)}</span>
+    </button>`;
+  }).join("");
+  setOverlay(`<h1>Ship Select</h1><p>Unlock more ships by clearing planets.</p><div class="screen-grid">${cards}</div><div class="menu-actions">${button("Back", "menu", "secondary")}</div>`);
+}
+
+function renderStore() {
+  setOverlay(`
+    <h1>Store</h1>
+    <p>Permanent unlocks are scaffolded for progression. Current balance: ${save.coins} coins, ${save.crystals} crystals.</p>
+    <div class="screen-grid">
+      <div class="screen-card"><strong>Skill Tree</strong><span>Permanent damage, health, magnet, and shield nodes. Coming online as purchasable nodes.</span></div>
+      <div class="screen-card"><strong>Treasure Crates</strong><span>Bosses and achievements award crates with coins, crystals, colors, trails, titles, and badges.</span></div>
+      <div class="screen-card"><strong>Cloud Save</strong><span>Local autosave is active. Cloud sync hook is ready for an account service.</span></div>
+      <div class="screen-card"><strong>Achievements</strong><span>${save.achievements.length || 0} earned. More badges unlock from boss clears and survival streaks.</span></div>
+    </div>
+    <div class="menu-actions">${button("Open Crate", "crate")}${button("Back", "menu", "secondary")}</div>`);
+}
+
+function renderSettings() {
+  setOverlay(`
+    <h1>Settings</h1>
+    <p>Tune feel for your phone or laptop.</p>
+    <div class="screen-card">
+      <label class="setting-row"><span>Sound Volume</span><input data-setting="sound" type="range" min="0" max="1" step="0.05" value="${settings.sound}"></label>
+      <label class="setting-row"><span>Music Volume</span><input data-setting="music" type="range" min="0" max="1" step="0.05" value="${settings.music}"></label>
+      <label class="setting-row"><span>Haptics</span><input data-setting="haptics" type="checkbox" ${settings.haptics ? "checked" : ""}></label>
+      <label class="setting-row"><span>Low FX Mode</span><input data-setting="lowFx" type="checkbox" ${settings.lowFx ? "checked" : ""}></label>
+    </div>
+    <div class="menu-actions">${button("Back", "menu", "secondary")}</div>`);
+  document.querySelectorAll("[data-setting]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const key = input.dataset.setting;
+      settings[key] = input.type === "checkbox" ? input.checked : Number(input.value);
+      if (audio) {
+        audio.master.gain.value = settings.sound;
+        audio.music.gain.value = settings.music;
+      }
+      saveSettings();
+    });
+  });
+}
+
+function renderHelp() {
+  const returnAction = state?.mode === "playing" ? "resume" : "menu";
+  if (state?.mode === "playing") state.mode = "paused";
+  setOverlay(`
+    <h1>How to Play</h1>
+    <p>Protect Earth, clear three waves, beat the planet boss, then unlock the next planet.</p>
+    <div class="how-to">
+      <div><strong>Controls</strong><span>WASD / arrows / drag to move. Shooting is automatic. Press P to pause.</span></div>
+      <div><strong>Rewards</strong><span>Green crystals level you up. Gold coins and boss chests feed permanent progression.</span></div>
+      <div><strong>Survival</strong><span>Enemies never spawn directly on you. Shield absorbs hits, but reckless collisions still hurt.</span></div>
+    </div>
+    <div class="menu-actions">${button("Got It", returnAction)}</div>`);
+}
+
+function getDailyBonusText() {
+  const today = new Date().toISOString().slice(0, 10);
+  return save.dailyClaimed === today ? "Daily Claimed" : "Claim Daily";
+}
+
+function claimDaily() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (save.dailyClaimed === today) {
+    playTone(180, 0.08, "triangle", 0.05);
+    return;
+  }
+  save.dailyClaimed = today;
+  save.coins += 75;
+  save.crystals += 12;
+  saveGame();
+  playTone(640, 0.18, "triangle", 0.08, 280);
+  renderMenu();
+}
+
+function handleOverlayAction(action) {
+  if (!action) return;
+  playTone(320, 0.05, "square", 0.035);
+  if (action === "play") startGame();
+  else if (action === "menu") renderMenu();
+  else if (action === "levels") renderLevelSelect();
+  else if (action === "ships") renderShipSelect();
+  else if (action === "store") renderStore();
+  else if (action === "settings") renderSettings();
+  else if (action === "daily") claimDaily();
+  else if (action === "crate") openCrate();
+  else if (action === "resume") resumeGame();
+  else if (action === "restart") startGame();
+  else if (action === "locked") playTone(120, 0.12, "sawtooth", 0.05, -40);
+  else if (action.startsWith("select-level:")) {
+    save.selectedPlanet = Number(action.split(":")[1]);
+    saveGame();
+    state = makeState();
+    renderMenu();
+  } else if (action.startsWith("select-ship:")) {
+    save.selectedShip = Number(action.split(":")[1]);
+    saveGame();
+    state = makeState();
+    renderShipSelect();
+  } else if (action.startsWith("upgrade:")) {
+    takeUpgrade(Number(action.split(":")[1]));
+  }
+}
+
+function openCrate() {
+  const coins = Math.floor(rand(35, 90));
+  const crystals = Math.floor(rand(6, 18));
+  save.coins += coins;
+  save.crystals += crystals;
+  saveGame();
+  playTone(720, 0.22, "triangle", 0.08, 420);
+  setOverlay(`<h1>Treasure Crate</h1><p>You found ${coins} coins and ${crystals} crystals.</p><div class="menu-actions">${button("Nice", "store")}</div>`);
+}
+
 function startGame() {
+  ensureAudio();
   resizeCanvas();
   state = makeState();
   state.mode = "playing";
-  els.overlay.classList.add("hidden");
+  hideOverlay();
+  startMusic("game");
   lastTime = performance.now();
   requestAnimationFrame(loop);
 }
 
-function renderStartOverlay() {
-  els.overlay.innerHTML = `
-    <h1>Asteroid Panic</h1>
-    <p>Move around Earth, dodge aliens, and let your ship auto-shoot the closest enemy.</p>
-    <div class="how-to">
-      <div>
-        <strong>Move</strong>
-        <span>Use WASD or arrow keys. On phone/tablet, drag on the arena.</span>
-      </div>
-      <div>
-        <strong>Shoot</strong>
-        <span>Shooting is automatic. Stay alive and aim by moving near enemies.</span>
-      </div>
-      <div>
-        <strong>Upgrade</strong>
-        <span>Collect green crystals. Pick upgrades after levels and cleared waves.</span>
-      </div>
-    </div>
-    <button id="startButton" type="button">Start Game</button>`;
-  els.overlay.classList.remove("hidden");
-  document.querySelector("#startButton").addEventListener("click", startGame);
-}
-
 function pauseGame() {
-  if (!state || state.mode === "menu" || state.mode === "gameover") return;
+  if (!state || state.mode === "menu" || state.mode === "upgrade" || state.mode === "gameover" || state.mode === "victory") return;
   state.mode = state.mode === "paused" ? "playing" : "paused";
   els.pauseButton.textContent = state.mode === "paused" ? "Resume" : "Pause";
-  if (state.mode === "playing") {
-    lastTime = performance.now();
-    requestAnimationFrame(loop);
-  } else {
-    showOverlay("Paused", "Catch your breath. The asteroids can wait.", "Resume");
+  if (state.mode === "playing") resumeGame();
+  else {
+    setOverlay(`<h1>Paused</h1><p>Autosave is active. Cloud save placeholder is ready for account sync later.</p><div class="menu-actions">${button("Resume", "resume")}${button("Restart", "restart", "secondary")}${button("Settings", "settings", "secondary")}${button("Main Menu", "menu", "secondary")}</div>`);
   }
 }
 
-function showOverlay(title, text, buttonText) {
-  els.overlay.innerHTML = `<h1>${title}</h1><p>${text}</p><button id="overlayButton" type="button">${buttonText}</button>`;
-  els.overlay.classList.remove("hidden");
-  document.querySelector("#overlayButton").addEventListener("click", () => {
-    if (state.mode === "paused") pauseGame();
-    else if (state.mode === "upgrade") takeUpgrade(0);
-    else startGame();
-  });
+function resumeGame() {
+  if (!state) return;
+  hideOverlay();
+  state.mode = "playing";
+  els.pauseButton.textContent = "Pause";
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
 }
 
-function showHelp() {
-  const previousMode = state?.mode || "menu";
-  if (previousMode === "upgrade" || previousMode === "gameover") return;
-  if (previousMode === "playing") state.mode = "paused";
-  els.pauseButton.textContent = "Resume";
-  els.overlay.innerHTML = `
-    <h1>How to Play</h1>
-    <p>Protect Earth for as many waves as you can.</p>
-    <div class="how-to">
-      <div>
-        <strong>Move</strong>
-        <span>Use WASD or arrow keys. On touch screens, drag on the arena.</span>
-      </div>
-      <div>
-        <strong>Fight</strong>
-        <span>Your ship auto-shoots the nearest enemy. Dodge red aliens and yellow lasers.</span>
-      </div>
-      <div>
-        <strong>Level Up</strong>
-        <span>Grab green crystals, clear waves, and choose upgrades when the menu appears.</span>
-      </div>
-    </div>
-    <button id="overlayButton" type="button">Got It</button>`;
-  els.overlay.classList.remove("hidden");
-  document.querySelector("#overlayButton").addEventListener("click", () => {
-    if (previousMode === "menu") {
-      els.pauseButton.textContent = "Pause";
-      renderStartOverlay();
-      return;
-    }
-    els.overlay.classList.add("hidden");
-    state.mode = "playing";
-    els.pauseButton.textContent = "Pause";
-    lastTime = performance.now();
-    requestAnimationFrame(loop);
-  });
+function beginUpgrade(reason = "Wave cleared") {
+  if (state.mode !== "playing") return;
+  state.mode = "upgrade";
+  state.upgradeChoices = [...UPGRADE_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
+  const choices = state.upgradeChoices
+    .map((upgrade, index) => `<button class="upgrade" data-action="upgrade:${index}" type="button"><strong>${upgrade.name}</strong><span>${upgrade.desc}</span></button>`)
+    .join("");
+  setOverlay(`<h1>Upgrade</h1><p>${reason}. Pick one boost before the panic resumes.</p><div class="upgrade-list">${choices}</div>`);
+  playTone(520, 0.12, "triangle", 0.07, 180);
+}
+
+function takeUpgrade(index) {
+  const upgrade = state.upgradeChoices[index] || state.upgradeChoices[0];
+  upgrade.apply(state.player);
+  state.player.health = Math.min(state.player.maxHealth, state.player.health + 16);
+  state.player.shield = Math.min(state.player.shieldMax, state.player.shield + 18);
+  spawnText(state.player.x, state.player.y - 28, upgrade.name, "#77ef8f");
+  state.mode = "playing";
+  hideOverlay();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
 }
 
 function getMoveVector() {
@@ -197,167 +611,338 @@ function getMoveVector() {
     x += pointerVector.x;
     y += pointerVector.y;
   }
-  const length = Math.hypot(x, y) || 1;
-  return { x: x / length, y: y / length, moving: Math.abs(x) + Math.abs(y) > 0 };
-}
-
-function spawnAtEdge(type) {
-  const side = Math.floor(Math.random() * 4);
-  const margin = 35;
-  const x = side === 0 ? -margin : side === 1 ? canvas.clientWidth + margin : rand(0, canvas.clientWidth);
-  const y = side === 2 ? -margin : side === 3 ? canvas.clientHeight + margin : rand(0, canvas.clientHeight);
-  spawnEnemy(type, x, y);
-}
-
-function spawnEnemy(type, x, y) {
-  const base = {
-    x,
-    y,
-    type,
-    cooldown: rand(0.2, 1.4),
-    charge: rand(0.6, 1.5),
-    angle: rand(0, TAU),
-  };
-  const settings = {
-    asteroid: { radius: 28, hp: 34, speed: 46, color: "#9aa7bd", value: 2 },
-    drone: { radius: 14, hp: 18, speed: 112, color: "#ff5a6b", value: 1 },
-    shooter: { radius: 17, hp: 32, speed: 72, color: "#ffd166", value: 2 },
-    kamikaze: { radius: 16, hp: 28, speed: 86, color: "#ff8b45", value: 3 },
-    mother: { radius: 42, hp: 420 + state.wave * 70, speed: 36, color: "#b083ff", value: 16 },
-  };
-  state.enemies.push({ ...base, ...settings[type], maxHp: settings[type].hp });
+  const length = Math.hypot(x, y);
+  return length > 0 ? { x: x / length, y: y / length, moving: true } : { x: 0, y: 0, moving: false };
 }
 
 function spawnWave(dt) {
+  if (state.boss) return;
   if (state.killsThisWave >= state.waveTarget && state.enemies.length === 0) {
-    beginUpgrade();
+    if (state.waveInPlanet >= 3) spawnBoss();
+    else advanceWave();
     return;
   }
 
   state.spawnTimer -= dt;
-  if (state.spawnTimer <= 0 && state.killsThisWave + state.enemies.length < state.waveTarget) {
-    const roll = Math.random();
-    const type =
-      state.wave % 5 === 0 && !state.bossSpawned
-        ? "mother"
-        : roll < 0.28
-          ? "asteroid"
-          : roll < 0.62
-            ? "drone"
-            : roll < 0.82
-              ? "shooter"
-              : "kamikaze";
-    if (type === "mother") state.bossSpawned = true;
-    spawnAtEdge(type);
-    state.spawnTimer = Math.max(0.25, 1.15 - state.wave * 0.055);
+  if (state.spawnTimer > 0) return;
+
+  const aliveBudget = state.enemies.length < 10 + state.planetIndex * 2;
+  if (!aliveBudget || state.killsThisWave + state.enemies.length >= state.waveTarget) return;
+
+  const type = choose(state.planet.enemies);
+  spawnAtEdge(type);
+  state.spawnTimer = Math.max(0.22, 1.05 - state.planetIndex * 0.06 - state.waveInPlanet * 0.08);
+}
+
+function advanceWave() {
+  state.wave += 1;
+  state.waveInPlanet += 1;
+  state.killsThisWave = 0;
+  state.waveTarget = 12 + state.planetIndex * 4 + state.waveInPlanet * 5;
+  state.camera.flash = 0.22;
+  beginUpgrade("Wave cleared");
+}
+
+function spawnBoss() {
+  const data = BOSSES[state.planet.boss];
+  const hpScale = 1 + state.planetIndex * 0.28;
+  state.boss = {
+    ...data,
+    type: "boss",
+    x: canvas.clientWidth / 2,
+    y: -90,
+    targetY: Math.max(100, canvas.clientHeight * 0.22),
+    hp: data.hp * hpScale,
+    maxHp: data.hp * hpScale,
+    phase: 1,
+    cooldown: 1.2,
+    spawnTime: 2.1,
+    angle: 0,
+    weakAngle: 0,
+    hitFlash: 0,
+  };
+  state.enemies.push(state.boss);
+  state.bossAnnounced = true;
+  state.camera.flash = 0.65;
+  state.camera.shake = 12;
+  startMusic("boss");
+  spawnText(canvas.clientWidth / 2, 96, `${data.name} Appears`, data.color);
+  playTone(90, 0.55, "sawtooth", 0.09, -35);
+  vibrate([50, 40, 80]);
+}
+
+function spawnAtEdge(type) {
+  const margin = 55;
+  const attempts = 16;
+  for (let i = 0; i < attempts; i += 1) {
+    const side = Math.floor(Math.random() * 4);
+    const x = side === 0 ? -margin : side === 1 ? canvas.clientWidth + margin : rand(0, canvas.clientWidth);
+    const y = side === 2 ? -margin : side === 3 ? canvas.clientHeight + margin : rand(0, canvas.clientHeight);
+    if (dist({ x, y }, state.player) < 230) continue;
+    if (state.enemies.some((enemy) => Math.hypot(enemy.x - x, enemy.y - y) < enemy.radius + 50)) continue;
+    spawnEnemy(type, x, y);
+    return;
   }
 }
 
-function beginUpgrade() {
-  state.mode = "upgrade";
-  state.wave += 1;
-  state.killsThisWave = 0;
-  state.waveTarget = 10 + state.wave * 4;
-  state.bossSpawned = false;
-  state.upgradeChoices = [...upgradePool].sort(() => Math.random() - 0.5).slice(0, 3);
-  const buttons = state.upgradeChoices
-    .map((upgrade, index) => `<button class="upgrade" data-upgrade="${index}" type="button">${upgrade.name}</button>`)
-    .join("");
-  els.overlay.innerHTML = `<h1>Upgrade</h1><p>Wave cleared. Pick a boost before the panic resumes.</p><div class="upgrade-list">${buttons}</div>`;
-  els.overlay.classList.remove("hidden");
-  document.querySelectorAll(".upgrade").forEach((button) => {
-    button.addEventListener("click", () => takeUpgrade(Number(button.dataset.upgrade)));
+function spawnEnemy(type, x, y) {
+  const cfg = ENEMY_TYPES[type];
+  const scale = 1 + state.planetIndex * 0.12 + (state.waveInPlanet - 1) * 0.06;
+  state.enemies.push({
+    ...cfg,
+    type,
+    x,
+    y,
+    hp: cfg.hp * scale,
+    maxHp: cfg.hp * scale,
+    speed: cfg.speed * (1 + state.planetIndex * 0.035),
+    cooldown: rand(0.4, 1.8),
+    charge: rand(0.6, 1.5),
+    angle: rand(0, TAU),
+    hitFlash: 0,
+    slow: 0,
+    poison: 0,
+    burn: 0,
+    spawnGrace: 0.5,
   });
 }
 
-function takeUpgrade(index) {
-  const upgrade = state.upgradeChoices[index] || state.upgradeChoices[0];
-  upgrade.apply();
-  state.player.health = Math.min(state.player.maxHealth, state.player.health + 18);
-  state.mode = "playing";
-  els.overlay.classList.add("hidden");
-  lastTime = performance.now();
-  requestAnimationFrame(loop);
-}
-
 function updatePlayer(dt) {
-  const player = state.player;
+  const p = state.player;
   const move = getMoveVector();
-  if (move.moving) {
-    player.x += move.x * player.speed * dt;
-    player.y += move.y * player.speed * dt;
+  const targetSpeed = p.speed * (p.dash > 0 && move.moving && keys.has("shift") ? 1.45 : 1);
+  p.vx += move.x * p.accel * dt;
+  p.vy += move.y * p.accel * dt;
+  if (!move.moving) {
+    p.vx = lerp(p.vx, 0, clamp(p.friction * dt, 0, 1));
+    p.vy = lerp(p.vy, 0, clamp(p.friction * dt, 0, 1));
   }
-  player.x = clamp(player.x, player.radius, canvas.clientWidth - player.radius);
-  player.y = clamp(player.y, player.radius, canvas.clientHeight - player.radius);
-  player.invuln = Math.max(0, player.invuln - dt);
+  const speed = Math.hypot(p.vx, p.vy);
+  if (speed > targetSpeed) {
+    p.vx = (p.vx / speed) * targetSpeed;
+    p.vy = (p.vy / speed) * targetSpeed;
+  }
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  p.x = clamp(p.x, p.radius, canvas.clientWidth - p.radius);
+  p.y = clamp(p.y, p.radius, canvas.clientHeight - p.radius);
+  if (speed > 5) p.angle = lerpAngle(p.angle, Math.atan2(p.vy, p.vx), clamp(12 * dt, 0, 1));
+  p.invuln = Math.max(0, p.invuln - dt);
+  p.recoil = Math.max(0, p.recoil - dt * 8);
+  p.shieldPulse = Math.max(0, p.shieldPulse - dt * 3);
+  if (p.shield < p.shieldMax) p.shield = Math.min(p.shieldMax, p.shield + dt * 1.6);
 
-  player.fireCooldown -= dt;
-  if (player.fireCooldown <= 0) {
-    fireAtNearestEnemy();
-    player.fireCooldown = 1 / player.fireRate;
+  if (speed > 15) exhaust(p.x - Math.cos(p.angle) * 16, p.y - Math.sin(p.angle) * 16, p.trail);
+
+  p.fireCooldown -= dt;
+  if (p.fireCooldown <= 0) {
+    fireAtNearestEnemy(p.x, p.y, false);
+    p.fireCooldown = 1 / p.fireRate;
+  }
+
+  updateCompanions(dt);
+  updateTurret(dt);
+  updateEmp(dt);
+}
+
+function lerpAngle(a, b, t) {
+  const diff = ((b - a + Math.PI) % TAU) - Math.PI;
+  return a + diff * t;
+}
+
+function fireAtNearestEnemy(x, y, fromDrone) {
+  if (!state.enemies.length) return;
+  const target = state.enemies.reduce((best, enemy) => (dist({ x, y }, enemy) < dist({ x, y }, best) ? enemy : best));
+  const angle = Math.atan2(target.y - y, target.x - x);
+  const bullets = fromDrone ? 1 : state.player.bullets;
+  const spread = 0.18;
+  for (let i = 0; i < bullets; i += 1) {
+    const offset = (i - (bullets - 1) / 2) * spread;
+    spawnBullet(x, y, angle + offset, fromDrone ? 0.55 : 1);
+  }
+  state.player.recoil = 1;
+  playTone(fromDrone ? 440 : 620, 0.045, "triangle", 0.022, 80);
+}
+
+function spawnBullet(x, y, angle, multiplier) {
+  const p = state.player;
+  state.bullets.push({
+    x,
+    y,
+    vx: Math.cos(angle) * 560,
+    vy: Math.sin(angle) * 560,
+    radius: 5,
+    life: 1.25,
+    damage: p.damage * multiplier * (Math.random() < p.crit ? 2.2 : 1),
+    pierce: p.ricochet > 0 ? 1 : 0,
+    freeze: p.freeze,
+    poison: p.poison,
+    burn: p.burn,
+    color: p.freeze > 0 ? "#9be7ff" : p.burn > 0 ? "#ff8b45" : "#55dcff",
+  });
+}
+
+function updateCompanions(dt) {
+  const p = state.player;
+  if (!p.drones) return;
+  p.droneCooldown = Math.max(0, (p.droneCooldown || 0) - dt);
+  if (p.droneCooldown <= 0) {
+    for (let i = 0; i < p.drones; i += 1) {
+      const a = state.time * 2.2 + (i / p.drones) * TAU;
+      fireAtNearestEnemy(p.x + Math.cos(a) * 35, p.y + Math.sin(a) * 35, true);
+    }
+    p.droneCooldown = 1.1;
   }
 }
 
-function fireAtNearestEnemy() {
-  if (!state.enemies.length) return;
-  const player = state.player;
-  const target = state.enemies.reduce((best, enemy) => (dist(player, enemy) < dist(player, best) ? enemy : best));
-  const angle = Math.atan2(target.y - player.y, target.x - player.x);
-  const spread = 0.22;
-  for (let i = 0; i < player.bullets; i += 1) {
-    const offset = (i - (player.bullets - 1) / 2) * spread;
-    state.bullets.push({
-      x: player.x,
-      y: player.y,
-      vx: Math.cos(angle + offset) * 520,
-      vy: Math.sin(angle + offset) * 520,
-      radius: 5,
-      life: 1.2,
-      damage: player.damage * (Math.random() < player.crit ? 2.2 : 1),
-    });
+function updateTurret(dt) {
+  const p = state.player;
+  if (!p.turrets || !state.enemies.length) return;
+  state.turretCooldown -= dt;
+  if (state.turretCooldown <= 0) {
+    const earth = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
+    const target = state.enemies.reduce((best, enemy) => (dist(earth, enemy) < dist(earth, best) ? enemy : best));
+    const angle = Math.atan2(target.y - earth.y, target.x - earth.x);
+    spawnBullet(earth.x, earth.y, angle, 0.7);
+    state.turretCooldown = Math.max(0.35, 1.25 - p.turrets * 0.12);
+  }
+}
+
+function updateEmp(dt) {
+  const p = state.player;
+  if (!p.emp) return;
+  state.empCooldown -= dt;
+  if (state.empCooldown <= 0) {
+    for (const enemy of state.enemies) {
+      if (dist(p, enemy) < 150 + p.emp * 28) {
+        enemy.hp -= p.damage * 0.8;
+        enemy.slow = Math.max(enemy.slow, 1.2);
+        spawnText(enemy.x, enemy.y - enemy.radius, "EMP", "#9be7ff");
+      }
+    }
+    ring(p.x, p.y, "#9be7ff", 28);
+    state.empCooldown = Math.max(2.8, 6 - p.emp * 0.4);
   }
 }
 
 function updateEnemies(dt) {
-  const player = state.player;
+  const p = state.player;
   for (const enemy of state.enemies) {
-    const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+    enemy.spawnGrace = Math.max(0, enemy.spawnGrace - dt);
     enemy.cooldown -= dt;
     enemy.charge -= dt;
+    enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 8);
+    enemy.angle += dt * 0.8;
+    enemy.slow = Math.max(0, enemy.slow - dt);
+    if (enemy.poison > 0) {
+      enemy.hp -= enemy.poison * dt;
+      enemy.poison = Math.max(0, enemy.poison - dt * 2);
+    }
+    if (enemy.burn > 0) {
+      enemy.hp -= enemy.burn * dt;
+      enemy.burn = Math.max(0, enemy.burn - dt * 3);
+      if (Math.random() < dt * 8) smoke(enemy.x, enemy.y, "#ff8b45");
+    }
+    if (enemy.type === "boss") {
+      updateBoss(enemy, dt);
+      continue;
+    }
 
-    if (enemy.type === "shooter") {
-      const d = dist(player, enemy);
-      const direction = d < 210 ? -1 : 1;
-      enemy.x += Math.cos(angle) * enemy.speed * direction * dt;
-      enemy.y += Math.sin(angle) * enemy.speed * direction * dt;
+    const angle = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+    const slowMult = enemy.slow > 0 ? 0.52 : 1;
+    const speed = enemy.speed * slowMult;
+
+    if (enemy.type === "shooter" || enemy.type === "laserDrone" || enemy.type === "sniper") {
+      const d = dist(p, enemy);
+      const desired = enemy.type === "sniper" ? 330 : 220;
+      const direction = d < desired ? -1 : 1;
+      enemy.x += Math.cos(angle) * speed * direction * dt;
+      enemy.y += Math.sin(angle) * speed * direction * dt;
       if (enemy.cooldown <= 0) {
-        state.enemyBullets.push({
-          x: enemy.x,
-          y: enemy.y,
-          vx: Math.cos(angle) * 240,
-          vy: Math.sin(angle) * 240,
-          radius: 5,
-          life: 3,
-        });
-        enemy.cooldown = 1.6;
+        shootEnemy(enemy, angle, enemy.type === "sniper" ? 360 : enemy.type === "laserDrone" ? 300 : 250);
+        enemy.cooldown = enemy.type === "sniper" ? 2.4 : 1.45;
       }
-    } else if (enemy.type === "mother") {
-      enemy.x += Math.cos(angle) * enemy.speed * dt;
-      enemy.y += Math.sin(angle) * enemy.speed * dt;
+    } else if (enemy.type === "mineLayer") {
+      enemy.x += Math.cos(angle + Math.sin(state.time)) * speed * 0.72 * dt;
+      enemy.y += Math.sin(angle + Math.sin(state.time)) * speed * 0.72 * dt;
       if (enemy.cooldown <= 0) {
-        spawnEnemy(Math.random() < 0.5 ? "drone" : "shooter", enemy.x + rand(-35, 35), enemy.y + rand(-35, 35));
-        enemy.cooldown = 2.1;
+        state.mines.push({ x: enemy.x, y: enemy.y, radius: 12, life: 6, pulse: 0 });
+        enemy.cooldown = 2.2;
+      }
+    } else if (enemy.type === "teleporter") {
+      enemy.x += Math.cos(angle) * speed * 0.66 * dt;
+      enemy.y += Math.sin(angle) * speed * 0.66 * dt;
+      if (enemy.cooldown <= 0) {
+        safeTeleport(enemy);
+        enemy.cooldown = 2.5;
       }
     } else {
-      const speed = enemy.type === "kamikaze" && enemy.charge <= 0 ? enemy.speed * 2.3 : enemy.speed;
-      enemy.x += Math.cos(angle) * speed * dt;
-      enemy.y += Math.sin(angle) * speed * dt;
+      const chargeMult = enemy.type === "kamikaze" && enemy.charge <= 0 ? 2.35 : 1;
+      enemy.x += Math.cos(angle) * speed * chargeMult * dt;
+      enemy.y += Math.sin(angle) * speed * chargeMult * dt;
     }
 
-    if (dist(player, enemy) < player.radius + enemy.radius && player.invuln <= 0) {
-      damagePlayer(enemy.type === "kamikaze" ? 24 : 12);
-      enemy.hp -= enemy.type === "kamikaze" ? 999 : 16;
+    if (enemy.type === "shieldCarrier") shieldNearbyEnemies(enemy);
+
+    if (enemy.spawnGrace <= 0 && dist(p, enemy) < p.radius + enemy.radius && p.invuln <= 0) {
+      damagePlayer(enemy.type === "kamikaze" ? 28 : 12);
+      enemy.hp -= enemy.type === "kamikaze" ? 999 : 18;
+      state.camera.shake = Math.max(state.camera.shake, 5);
     }
+  }
+}
+
+function updateBoss(boss, dt) {
+  boss.spawnTime = Math.max(0, boss.spawnTime - dt);
+  boss.weakAngle += dt * (1 + boss.phase * 0.4);
+  boss.phase = boss.hp < boss.maxHp * 0.35 ? 3 : boss.hp < boss.maxHp * 0.68 ? 2 : 1;
+  if (boss.y < boss.targetY) {
+    boss.y += 95 * dt;
+    return;
+  }
+  boss.x += Math.sin(state.time * 0.9) * 36 * dt;
+  boss.cooldown -= dt;
+  if (boss.cooldown > 0) return;
+  const attack = boss.phase === 1 ? 0 : Math.floor(rand(0, boss.phase + 1));
+  if (attack === 0) {
+    for (let i = 0; i < 7 + boss.phase * 2; i += 1) shootEnemy(boss, (i / (7 + boss.phase * 2)) * TAU + state.time * 0.4, 170 + state.planetIndex * 12);
+  } else if (attack === 1) {
+    for (let i = 0; i < boss.phase + 1; i += 1) spawnEnemy(choose(state.planet.enemies), boss.x + rand(-55, 55), boss.y + rand(10, 65));
+  } else {
+    state.mines.push({ x: boss.x + rand(-120, 120), y: boss.y + rand(70, 180), radius: 15, life: 5, pulse: 0 });
+  }
+  boss.cooldown = Math.max(0.75, 2 - boss.phase * 0.32);
+}
+
+function shootEnemy(enemy, angle, speed) {
+  state.enemyBullets.push({
+    x: enemy.x + Math.cos(angle) * enemy.radius,
+    y: enemy.y + Math.sin(angle) * enemy.radius,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    radius: enemy.type === "boss" ? 6 : 5,
+    life: 4,
+    color: enemy.color,
+  });
+}
+
+function safeTeleport(enemy) {
+  for (let i = 0; i < 12; i += 1) {
+    const x = rand(45, canvas.clientWidth - 45);
+    const y = rand(45, canvas.clientHeight - 45);
+    if (dist({ x, y }, state.player) > 210) {
+      ring(enemy.x, enemy.y, enemy.color, 10);
+      enemy.x = x;
+      enemy.y = y;
+      ring(enemy.x, enemy.y, enemy.color, 16);
+      return;
+    }
+  }
+}
+
+function shieldNearbyEnemies(carrier) {
+  for (const enemy of state.enemies) {
+    if (enemy !== carrier && enemy.type !== "boss" && dist(carrier, enemy) < 120) enemy.shielded = 0.12;
   }
 }
 
@@ -366,6 +951,14 @@ function updateBullets(dt) {
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
     bullet.life -= dt;
+    if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > canvas.clientWidth)) {
+      bullet.vx *= -1;
+      bullet.pierce -= 1;
+    }
+    if (bullet.pierce > 0 && (bullet.y < 0 || bullet.y > canvas.clientHeight)) {
+      bullet.vy *= -1;
+      bullet.pierce -= 1;
+    }
   }
   for (const bullet of state.enemyBullets) {
     bullet.x += bullet.vx * dt;
@@ -373,24 +966,45 @@ function updateBullets(dt) {
     bullet.life -= dt;
     if (dist(bullet, state.player) < bullet.radius + state.player.radius) {
       bullet.life = 0;
-      damagePlayer(10);
+      damagePlayer(10 + state.planetIndex);
     }
   }
   state.bullets = state.bullets.filter((bullet) => bullet.life > 0);
   state.enemyBullets = state.enemyBullets.filter((bullet) => bullet.life > 0);
 }
 
+function updateMines(dt) {
+  for (const mine of state.mines) {
+    mine.life -= dt;
+    mine.pulse += dt;
+    if (dist(mine, state.player) < mine.radius + state.player.radius + 10) {
+      mine.life = 0;
+      damagePlayer(18);
+      explode(mine.x, mine.y, "#ff8b45", 18);
+    }
+  }
+  state.mines = state.mines.filter((mine) => mine.life > 0);
+}
+
 function handleHits() {
   for (const bullet of state.bullets) {
     for (const enemy of state.enemies) {
-      if (bullet.life > 0 && dist(bullet, enemy) < bullet.radius + enemy.radius) {
-        bullet.life = 0;
-        enemy.hp -= bullet.damage;
-        burst(enemy.x, enemy.y, enemy.color, 4);
-        if (state.player.explosion > 0) {
-          for (const nearby of state.enemies) {
-            if (nearby !== enemy && dist(enemy, nearby) < state.player.explosion) nearby.hp -= bullet.damage * 0.35;
-          }
+      if (bullet.life <= 0 || dist(bullet, enemy) >= bullet.radius + enemy.radius) continue;
+      bullet.life = bullet.pierce > 0 ? bullet.life : 0;
+      if (bullet.pierce > 0) bullet.pierce -= 1;
+      let damage = bullet.damage;
+      if (enemy.shielded > 0) damage *= 0.45;
+      if (enemy.type === "boss" && !hitBossWeakPoint(enemy, bullet)) damage *= 0.55;
+      enemy.hp -= damage;
+      enemy.hitFlash = 1;
+      enemy.slow = Math.max(enemy.slow, bullet.freeze);
+      enemy.poison = Math.max(enemy.poison, bullet.poison);
+      enemy.burn = Math.max(enemy.burn, bullet.burn);
+      spark(enemy.x, enemy.y, bullet.color, 5);
+      spawnText(enemy.x, enemy.y - enemy.radius, Math.round(damage), damage > state.player.damage * 1.8 ? "#ffd166" : "#f5f7fb");
+      if (state.player.explosion > 0 && enemy.hp <= 0) {
+        for (const nearby of state.enemies) {
+          if (nearby !== enemy && dist(enemy, nearby) < state.player.explosion) nearby.hp -= damage * 0.36;
         }
       }
     }
@@ -398,156 +1012,385 @@ function handleHits() {
 
   const defeated = state.enemies.filter((enemy) => enemy.hp <= 0);
   state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
-  for (const enemy of defeated) {
-    state.killsThisWave += enemy.type === "mother" ? 6 : 1;
-    dropCrystal(enemy.x, enemy.y, enemy.value);
-    burst(enemy.x, enemy.y, enemy.color, enemy.type === "mother" ? 30 : 12);
-    if (enemy.type === "asteroid" && enemy.radius > 16) {
-      spawnEnemy("drone", enemy.x + 10, enemy.y);
-      spawnEnemy("drone", enemy.x - 10, enemy.y);
+  for (const enemy of defeated) killEnemy(enemy);
+}
+
+function hitBossWeakPoint(boss, bullet) {
+  const wx = boss.x + Math.cos(boss.weakAngle) * boss.radius * 0.78;
+  const wy = boss.y + Math.sin(boss.weakAngle) * boss.radius * 0.56;
+  return Math.hypot(bullet.x - wx, bullet.y - wy) < 24;
+}
+
+function killEnemy(enemy) {
+  const isBoss = enemy.type === "boss";
+  state.killsThisWave += isBoss ? state.waveTarget : 1;
+  const rewardMult = 1 + state.player.luck;
+  const coins = Math.ceil((isBoss ? 45 + state.planetIndex * 12 : enemy.coin) * rewardMult);
+  const crystals = Math.ceil((isBoss ? 12 + state.planetIndex * 4 : enemy.value) * rewardMult);
+  state.rewards.coins += coins;
+  state.rewards.crystals += crystals;
+  state.rewards.score += isBoss ? 1000 + state.planetIndex * 250 : enemy.xp * 10;
+  dropPickup(enemy.x, enemy.y, "coin", coins);
+  dropPickup(enemy.x, enemy.y, "crystal", crystals);
+  explode(enemy.x, enemy.y, enemy.color, isBoss ? 70 : 18);
+  debris(enemy.x, enemy.y, isBoss ? state.planet.asteroid : enemy.color, isBoss ? 26 : 8);
+  playTone(isBoss ? 70 : 170, isBoss ? 0.55 : 0.12, "sawtooth", isBoss ? 0.09 : 0.045, isBoss ? -35 : -60);
+  state.camera.shake = Math.max(state.camera.shake, isBoss ? 18 : 5);
+  if (enemy.type === "asteroid" || enemy.type === "splitter") {
+    if (enemy.radius > 15 && !isBoss) {
+      spawnEnemy("drone", enemy.x + 16, enemy.y);
+      spawnEnemy("drone", enemy.x - 16, enemy.y);
     }
   }
+  if (isBoss) completePlanet();
+}
+
+function completePlanet() {
+  const reward = state.planet.reward;
+  save.coins += state.rewards.coins + reward.coins;
+  save.crystals += state.rewards.crystals + reward.crystals;
+  save.totalXp += state.rewards.score;
+  save.playerLevel = Math.max(save.playerLevel, Math.floor(save.totalXp / 1000) + 1);
+  save.unlockedPlanet = Math.max(save.unlockedPlanet, Math.min(PLANETS.length - 1, state.planetIndex + 1));
+  for (const key of ["title", "ship", "weapon", "trail", "badge", "color"]) {
+    if (reward[key] && !save.unlocks.includes(reward[key])) save.unlocks.push(reward[key]);
+  }
+  if (!save.achievements.includes(`Cleared ${state.planet.name}`)) save.achievements.push(`Cleared ${state.planet.name}`);
+  saveGame();
+  state.mode = "victory";
+  startMusic("menu");
+  setOverlay(`
+    <h1>Planet Cleared</h1>
+    <p>${state.planet.name} defended. Reward chest unlocked: ${reward.coins} coins, ${reward.crystals} crystals${reward.ship ? `, ${reward.ship} ship` : ""}.</p>
+    <div class="menu-actions">
+      ${button("Next Planet", "levels")}
+      ${button("Main Menu", "menu", "secondary")}
+    </div>`);
 }
 
 function damagePlayer(amount) {
-  const player = state.player;
-  player.invuln = 0.45;
-  const shieldHit = Math.min(player.shield, amount);
-  player.shield -= shieldHit;
-  player.health -= amount - shieldHit;
-  if (player.health <= 0) {
-    player.health = 0;
+  const p = state.player;
+  if (p.invuln > 0) return;
+  p.invuln = 0.42;
+  p.shieldPulse = 1;
+  const shieldHit = Math.min(p.shield, amount);
+  p.shield -= shieldHit;
+  p.health -= amount - shieldHit;
+  state.camera.shake = Math.max(state.camera.shake, 8);
+  state.camera.flash = Math.max(state.camera.flash, 0.14);
+  playTone(120, 0.12, "sawtooth", 0.06, -40);
+  vibrate(35);
+  if (p.health <= 0) {
+    p.health = 0;
     state.mode = "gameover";
-    showOverlay("Game Over", `You reached wave ${state.wave} and banked ${player.crystals} crystals.`, "Play Again");
+    startMusic("menu");
+    setOverlay(`<h1>Defeat</h1><p>You reached Planet ${state.planetIndex + 1}, Wave ${state.waveInPlanet}. Rewards banked this run: ${state.rewards.coins} coins and ${state.rewards.crystals} crystals.</p><div class="menu-actions">${button("Try Again", "restart")}${button("Main Menu", "menu", "secondary")}</div>`);
   }
 }
 
-function dropCrystal(x, y, value) {
-  for (let i = 0; i < value; i += 1) {
-    state.crystals.push({ x: x + rand(-10, 10), y: y + rand(-10, 10), radius: 6, value: 1 });
-  }
-}
-
-function updateCrystals(dt) {
-  const player = state.player;
-  for (const crystal of state.crystals) {
-    const d = dist(player, crystal);
-    if (d < player.magnet) {
-      const angle = Math.atan2(player.y - crystal.y, player.x - crystal.x);
-      crystal.x += Math.cos(angle) * 300 * dt;
-      crystal.y += Math.sin(angle) * 300 * dt;
-    }
-    if (d < player.radius + crystal.radius) {
-      crystal.collected = true;
-      player.crystals += crystal.value;
-      player.xp += crystal.value;
-      if (player.xp >= player.xpNext) {
-        player.xp -= player.xpNext;
-        player.level += 1;
-        player.xpNext = Math.floor(player.xpNext * 1.45 + 2);
-        beginUpgrade();
-      }
-    }
-  }
-  state.crystals = state.crystals.filter((crystal) => !crystal.collected);
-}
-
-function burst(x, y, color, count) {
-  for (let i = 0; i < count; i += 1) {
-    const angle = rand(0, TAU);
-    state.particles.push({
-      x,
-      y,
-      vx: Math.cos(angle) * rand(60, 240),
-      vy: Math.sin(angle) * rand(60, 240),
-      life: rand(0.25, 0.65),
-      color,
+function dropPickup(x, y, type, count) {
+  const maxDrops = Math.min(count, type === "coin" ? 8 : 12);
+  for (let i = 0; i < maxDrops; i += 1) {
+    state.pickups.push({
+      x: clamp(x + rand(-18, 18), 20, canvas.clientWidth - 20),
+      y: clamp(y + rand(-18, 18), 20, canvas.clientHeight - 20),
+      vx: rand(-40, 40),
+      vy: rand(-50, 15),
+      radius: type === "coin" ? 5 : 6,
+      type,
+      value: Math.ceil(count / maxDrops),
+      life: 18,
+      spin: rand(0, TAU),
+      collected: false,
     });
   }
+}
+
+function updatePickups(dt) {
+  const p = state.player;
+  for (const pickup of state.pickups) {
+    pickup.life -= dt;
+    pickup.spin += dt * 3;
+    pickup.vx *= 0.98;
+    pickup.vy *= 0.98;
+    pickup.x += pickup.vx * dt;
+    pickup.y += pickup.vy * dt + Math.sin(state.time * 4 + pickup.spin) * 0.08;
+    const d = dist(p, pickup);
+    if (d < p.magnet) {
+      const angle = Math.atan2(p.y - pickup.y, p.x - pickup.x);
+      pickup.x += Math.cos(angle) * 360 * dt;
+      pickup.y += Math.sin(angle) * 360 * dt;
+    }
+    if (d < p.radius + pickup.radius + 4) {
+      pickup.collected = true;
+      if (pickup.type === "crystal") {
+        p.xp += pickup.value;
+        sparkle(p.x, p.y, "#77ef8f");
+        if (p.xp >= p.xpNext) {
+          p.xp -= p.xpNext;
+          p.level += 1;
+          p.xpNext = Math.floor(p.xpNext * 1.42 + 4);
+          beginUpgrade("Level up");
+        }
+      } else {
+        sparkle(p.x, p.y, "#ffd166");
+      }
+      playTone(pickup.type === "coin" ? 540 : 740, 0.045, "triangle", 0.025, 140);
+    }
+  }
+  state.pickups = state.pickups.filter((pickup) => !pickup.collected && pickup.life > 0);
+}
+
+function spawnParticle(kind, x, y, color, options = {}) {
+  const particle = pools.particles.pop() || {};
+  const angle = options.angle ?? rand(0, TAU);
+  const speed = options.speed ?? rand(40, 220);
+  particle.kind = kind;
+  particle.x = x;
+  particle.y = y;
+  particle.vx = Math.cos(angle) * speed + (options.vx || 0);
+  particle.vy = Math.sin(angle) * speed + (options.vy || 0);
+  particle.radius = options.radius ?? rand(2, 5);
+  particle.life = options.life ?? rand(0.25, 0.8);
+  particle.maxLife = particle.life;
+  particle.color = color;
+  particle.spin = rand(-4, 4);
+  state.particles.push(particle);
+}
+
+function explode(x, y, color, count) {
+  const amount = settings.lowFx ? Math.ceil(count * 0.45) : count;
+  for (let i = 0; i < amount; i += 1) spawnParticle("spark", x, y, color, { speed: rand(90, 320), radius: rand(2, 5), life: rand(0.22, 0.78) });
+  for (let i = 0; i < amount * 0.25; i += 1) smoke(x, y, color);
+  ring(x, y, color, count);
+}
+
+function spark(x, y, color, count) {
+  if (settings.lowFx) count = Math.ceil(count * 0.5);
+  for (let i = 0; i < count; i += 1) spawnParticle("spark", x, y, color, { speed: rand(50, 170), radius: 2, life: rand(0.14, 0.34) });
+}
+
+function sparkle(x, y, color) {
+  for (let i = 0; i < 5; i += 1) spawnParticle("spark", x, y, color, { speed: rand(30, 110), radius: 2, life: 0.28 });
+}
+
+function smoke(x, y, color) {
+  spawnParticle("smoke", x + rand(-8, 8), y + rand(-8, 8), color, { speed: rand(8, 55), radius: rand(6, 13), life: rand(0.45, 1.1) });
+}
+
+function debris(x, y, color, count) {
+  if (settings.lowFx) count = Math.ceil(count * 0.55);
+  for (let i = 0; i < count; i += 1) spawnParticle("debris", x, y, color, { speed: rand(70, 250), radius: rand(3, 8), life: rand(0.6, 1.4) });
+}
+
+function exhaust(x, y, color) {
+  if (Math.random() < 0.42 || settings.lowFx) return;
+  spawnParticle("smoke", x, y, color, { speed: rand(12, 50), radius: rand(3, 7), life: rand(0.25, 0.5) });
+}
+
+function ring(x, y, color, size) {
+  spawnParticle("ring", x, y, color, { speed: 0, radius: Math.max(12, size), life: 0.42 });
+}
+
+function spawnText(x, y, text, color) {
+  const number = pools.numbers.pop() || {};
+  number.x = x;
+  number.y = y;
+  number.vy = -38;
+  number.life = 0.9;
+  number.maxLife = 0.9;
+  number.text = String(text);
+  number.color = color;
+  state.numbers.push(number);
 }
 
 function updateParticles(dt) {
   for (const particle of state.particles) {
     particle.x += particle.vx * dt;
     particle.y += particle.vy * dt;
+    particle.vx *= particle.kind === "smoke" ? 0.985 : 0.96;
+    particle.vy *= particle.kind === "smoke" ? 0.985 : 0.96;
     particle.life -= dt;
+    if (particle.kind === "smoke") particle.radius += dt * 10;
+    if (particle.kind === "ring") particle.radius += dt * 180;
   }
-  state.particles = state.particles.filter((particle) => particle.life > 0);
+  for (const number of state.numbers) {
+    number.y += number.vy * dt;
+    number.life -= dt;
+  }
+  state.particles = state.particles.filter((particle) => {
+    if (particle.life > 0) return true;
+    if (pools.particles.length < 500) pools.particles.push(particle);
+    return false;
+  });
+  state.numbers = state.numbers.filter((number) => {
+    if (number.life > 0) return true;
+    if (pools.numbers.length < 80) pools.numbers.push(number);
+    return false;
+  });
+}
+
+function updateBackground(dt) {
+  const bg = state.background;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  for (const layer of bg.layers) {
+    for (const star of layer) {
+      star.y += star.speed * dt;
+      star.x += Math.sin(state.time * 0.2 + star.y * 0.01) * dt * 8;
+      if (star.y > h + 8) {
+        star.y = -8;
+        star.x = Math.random() * w;
+      }
+    }
+  }
+  for (const nebula of bg.nebulas) {
+    nebula.x += Math.sin(state.time * nebula.drift) * dt * 4;
+    nebula.y += Math.cos(state.time * nebula.drift) * dt * 3;
+  }
+  bg.shootingTimer -= dt;
+  if (bg.shootingTimer <= 0 && !settings.lowFx) {
+    bg.shootingStars.push({ x: rand(0, w), y: rand(0, h * 0.45), vx: rand(420, 680), vy: rand(160, 260), life: 0.75, maxLife: 0.75 });
+    bg.shootingTimer = rand(5, 11);
+  }
+  for (const star of bg.shootingStars) {
+    star.x += star.vx * dt;
+    star.y += star.vy * dt;
+    star.life -= dt;
+  }
+  bg.shootingStars = bg.shootingStars.filter((star) => star.life > 0);
 }
 
 function update(dt) {
-  if (state.mode !== "playing") return;
+  if (!state || state.mode !== "playing") return;
   state.time += dt;
+  state.camera.shake = Math.max(0, state.camera.shake - dt * 22);
+  state.camera.flash = Math.max(0, state.camera.flash - dt * 1.8);
+  updateBackground(dt);
   spawnWave(dt);
   updatePlayer(dt);
   updateEnemies(dt);
   updateBullets(dt);
+  updateMines(dt);
   handleHits();
-  updateCrystals(dt);
+  updatePickups(dt);
   updateParticles(dt);
   updateHud();
 }
 
 function updateHud() {
-  const player = state.player;
-  els.wave.textContent = state.wave;
-  els.level.textContent = player.level;
-  els.crystals.textContent = player.crystals;
-  els.health.textContent = Math.ceil(player.health);
-  els.healthBar.style.width = `${(player.health / player.maxHealth) * 100}%`;
-  els.xpBar.style.width = `${(player.xp / player.xpNext) * 100}%`;
-  els.waveBar.style.width = `${clamp(state.killsThisWave / state.waveTarget, 0, 1) * 100}%`;
+  const p = state.player;
+  els.planet.textContent = state.planetIndex + 1;
+  els.wave.textContent = state.waveInPlanet;
+  els.level.textContent = p.level;
+  els.crystals.textContent = save.crystals + state.rewards.crystals;
+  els.coins.textContent = save.coins + state.rewards.coins;
+  els.health.textContent = Math.ceil(p.health);
+  els.healthBar.style.width = `${clamp(p.health / p.maxHealth, 0, 1) * 100}%`;
+  els.xpBar.style.width = `${clamp(p.xp / p.xpNext, 0, 1) * 100}%`;
+  const bossProgress = state.boss ? 1 - state.boss.hp / state.boss.maxHp : state.killsThisWave / state.waveTarget;
+  els.waveBar.style.width = `${clamp(bossProgress, 0, 1) * 100}%`;
 }
 
 function draw() {
+  if (!state) return;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#080b12";
+  drawBackground(w, h);
+  const shake = state.camera.shake;
+  ctx.save();
+  ctx.translate(rand(-shake, shake), rand(-shake, shake));
+  drawPlanet(w, h);
+  for (const pickup of state.pickups) drawPickup(pickup);
+  for (const mine of state.mines) drawMine(mine);
+  for (const bullet of state.bullets) drawPlayerBullet(bullet);
+  for (const bullet of state.enemyBullets) drawEnemyBullet(bullet);
+  for (const enemy of state.enemies) drawEnemy(enemy);
+  for (const particle of state.particles) drawParticle(particle);
+  drawPlayer();
+  drawNumbers();
+  ctx.restore();
+  if (state.camera.flash > 0) {
+    ctx.globalAlpha = state.camera.flash * 0.45;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawBackground(w, h) {
+  const colors = state.planet.colors;
+  const gradient = ctx.createLinearGradient(0, 0, w, h);
+  gradient.addColorStop(0, colors[0]);
+  gradient.addColorStop(0.58, colors[1]);
+  gradient.addColorStop(1, "#03040a");
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, w, h);
 
-  for (const star of state.stars) {
-    ctx.globalAlpha = star.a;
-    ctx.fillStyle = "#ffffff";
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const nebula of state.background.nebulas) {
+    const g = ctx.createRadialGradient(nebula.x, nebula.y, 0, nebula.x, nebula.y, nebula.r);
+    g.addColorStop(0, `${nebula.hue}55`);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(star.x % w, star.y % h, star.r, 0, TAU);
+    ctx.arc(nebula.x, nebula.y, nebula.r, 0, TAU);
     ctx.fill();
+  }
+  ctx.restore();
+
+  for (const layer of state.background.layers) {
+    for (const star of layer) {
+      ctx.globalAlpha = star.a;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.r, 0, TAU);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
 
-  drawEarth(w, h);
-  for (const crystal of state.crystals) drawCrystal(crystal);
-  for (const bullet of state.bullets) drawCircle(bullet.x, bullet.y, bullet.radius, "#55dcff");
-  for (const bullet of state.enemyBullets) drawCircle(bullet.x, bullet.y, bullet.radius, "#ffcf5a");
-  for (const enemy of state.enemies) drawEnemy(enemy);
-  for (const particle of state.particles) drawCircle(particle.x, particle.y, 3, particle.color, particle.life);
-  drawPlayer();
+  for (const star of state.background.shootingStars) {
+    ctx.globalAlpha = star.life / star.maxLife;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(star.x, star.y);
+    ctx.lineTo(star.x - 80, star.y - 30);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 
-function drawEarth(w, h) {
+function drawPlanet(w, h) {
   const x = w / 2;
   const y = h / 2;
-  const r = 54;
+  const r = 52;
+  const colors = state.planet.colors;
   ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.strokeStyle = "#43d5ff";
-  ctx.lineWidth = 2;
+  ctx.globalCompositeOperation = "screen";
+  const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 2.2);
+  halo.addColorStop(0, `${colors[2]}55`);
+  halo.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(x, y, r + Math.sin(state.time * 2) * 4, 0, TAU);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  ctx.arc(x, y, r * 2.1, 0, TAU);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
   const gradient = ctx.createRadialGradient(x - 18, y - 18, 8, x, y, r);
-  gradient.addColorStop(0, "#81f4ff");
-  gradient.addColorStop(0.48, "#2072d6");
-  gradient.addColorStop(1, "#102a64");
+  gradient.addColorStop(0, colors[2]);
+  gradient.addColorStop(0.5, colors[1]);
+  gradient.addColorStop(1, colors[0]);
   ctx.fillStyle = gradient;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, TAU);
   ctx.fill();
-  ctx.fillStyle = "rgba(119, 239, 143, 0.85)";
+  ctx.fillStyle = "rgba(255,255,255,0.16)";
   ctx.beginPath();
-  ctx.ellipse(x - 10, y - 8, 18, 9, -0.4, 0, TAU);
-  ctx.ellipse(x + 18, y + 11, 13, 7, 0.4, 0, TAU);
+  ctx.ellipse(x - 10, y - 10, 18, 8, -0.4, 0, TAU);
+  ctx.ellipse(x + 20, y + 12, 16, 7, 0.4, 0, TAU);
   ctx.fill();
   ctx.restore();
 }
@@ -556,88 +1399,266 @@ function drawPlayer() {
   const p = state.player;
   ctx.save();
   ctx.translate(p.x, p.y);
-  ctx.rotate(state.time * 3);
-  ctx.fillStyle = p.invuln > 0 ? "#ffffff" : "#43d5ff";
+  ctx.rotate(p.angle);
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = p.color;
+  ctx.fillStyle = p.invuln > 0 ? "#ffffff" : p.color;
   ctx.beginPath();
-  ctx.moveTo(18, 0);
-  ctx.lineTo(-12, -12);
-  ctx.lineTo(-6, 0);
-  ctx.lineTo(-12, 12);
+  ctx.moveTo(20 - p.recoil * 4, 0);
+  ctx.lineTo(-13, -12);
+  ctx.lineTo(-7, 0);
+  ctx.lineTo(-13, 12);
   ctx.closePath();
   ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = p.trail;
+  ctx.beginPath();
+  ctx.moveTo(-13, -6);
+  ctx.lineTo(-24 - p.recoil * 8, 0);
+  ctx.lineTo(-13, 6);
+  ctx.fill();
   ctx.restore();
+
   if (p.shield > 0) {
-    ctx.strokeStyle = "rgba(119, 239, 143, 0.8)";
+    ctx.save();
+    ctx.globalAlpha = 0.28 + p.shieldPulse * 0.5;
+    ctx.strokeStyle = "#77ef8f";
     ctx.lineWidth = 3;
+    ctx.shadowColor = "#77ef8f";
+    ctx.shadowBlur = 16;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.radius + 8, 0, TAU);
+    ctx.arc(p.x, p.y, p.radius + 8 + p.shieldPulse * 8, 0, TAU);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  for (let i = 0; i < p.drones; i += 1) {
+    const a = state.time * 2.2 + (i / p.drones) * TAU;
+    drawGlowCircle(p.x + Math.cos(a) * 35, p.y + Math.sin(a) * 35, 6, "#b083ff");
   }
 }
 
 function drawEnemy(enemy) {
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
-  ctx.rotate(enemy.angle + state.time);
-  ctx.fillStyle = enemy.color;
-  if (enemy.type === "asteroid") {
-    ctx.beginPath();
-    for (let i = 0; i < 9; i += 1) {
-      const a = (i / 9) * TAU;
-      const r = enemy.radius * rand(0.72, 1);
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-  } else if (enemy.type === "mother") {
-    ctx.beginPath();
-    ctx.ellipse(0, 0, enemy.radius * 1.25, enemy.radius * 0.72, 0, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = "#271046";
-    ctx.fillRect(-24, -7, 48, 14);
-  } else {
-    ctx.beginPath();
-    ctx.moveTo(enemy.radius, 0);
-    ctx.lineTo(-enemy.radius, -enemy.radius * 0.75);
-    ctx.lineTo(-enemy.radius * 0.55, 0);
-    ctx.lineTo(-enemy.radius, enemy.radius * 0.75);
-    ctx.closePath();
-    ctx.fill();
-  }
+  ctx.rotate(enemy.angle);
+  ctx.globalAlpha = enemy.spawnGrace > 0 ? 0.55 : 1;
+  ctx.shadowBlur = enemy.hitFlash > 0 ? 22 : enemy.type === "boss" ? 18 : 8;
+  ctx.shadowColor = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
+  ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
+  if (enemy.type === "boss") drawBossBody(enemy);
+  else if (enemy.shape === "rock") drawRock(enemy.radius, enemy.type === "asteroid" ? state.planet.asteroid : enemy.color);
+  else if (enemy.shape === "tank") drawTank(enemy.radius);
+  else if (enemy.shape === "diamond") drawDiamond(enemy.radius);
+  else if (enemy.shape === "round") drawRound(enemy.radius);
+  else if (enemy.shape === "needle") drawNeedle(enemy.radius);
+  else if (enemy.shape === "shield") drawShieldCarrier(enemy.radius);
+  else drawDart(enemy.radius);
   ctx.restore();
 
-  if (enemy.hp < enemy.maxHp) {
-    ctx.fillStyle = "#1f2635";
-    ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, enemy.radius * 2, 4);
-    ctx.fillStyle = "#77ef8f";
-    ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, enemy.radius * 2 * (enemy.hp / enemy.maxHp), 4);
+  if (enemy.shielded > 0) {
+    enemy.shielded = Math.max(0, enemy.shielded - 0.016);
+    ctx.strokeStyle = "rgba(119, 239, 143, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, enemy.radius + 9, 0, TAU);
+    ctx.stroke();
   }
+
+  if (enemy.hp < enemy.maxHp) drawHealthBar(enemy);
+  if (enemy.type === "boss") drawWeakPoint(enemy);
 }
 
-function drawCrystal(crystal) {
-  ctx.save();
-  ctx.translate(crystal.x, crystal.y);
-  ctx.rotate(state.time * 2);
-  ctx.fillStyle = "#77ef8f";
+function drawBossBody(boss) {
   ctx.beginPath();
-  ctx.moveTo(0, -8);
-  ctx.lineTo(7, 0);
-  ctx.lineTo(0, 8);
-  ctx.lineTo(-7, 0);
+  ctx.ellipse(0, 0, boss.radius * 1.25, boss.radius * 0.76, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.34)";
+  ctx.fillRect(-boss.radius * 0.62, -8, boss.radius * 1.24, 16);
+  ctx.fillStyle = "#ffffff";
+  ctx.globalAlpha = 0.4;
+  ctx.beginPath();
+  ctx.arc(-boss.radius * 0.38, -boss.radius * 0.16, 8, 0, TAU);
+  ctx.arc(boss.radius * 0.38, -boss.radius * 0.16, 8, 0, TAU);
+  ctx.fill();
+}
+
+function drawRock(radius, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 9; i += 1) {
+    const a = (i / 9) * TAU;
+    const r = radius * (0.78 + ((i * 37) % 19) / 100);
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
   ctx.closePath();
   ctx.fill();
+}
+
+function drawDart(radius) {
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(-radius, -radius * 0.72);
+  ctx.lineTo(-radius * 0.45, 0);
+  ctx.lineTo(-radius, radius * 0.72);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTank(radius) {
+  ctx.fillRect(-radius, -radius * 0.7, radius * 2, radius * 1.4);
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(-radius * 0.2, -radius, radius * 0.4, radius * 2);
+}
+
+function drawDiamond(radius) {
+  ctx.beginPath();
+  ctx.moveTo(0, -radius);
+  ctx.lineTo(radius, 0);
+  ctx.lineTo(0, radius);
+  ctx.lineTo(-radius, 0);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRound(radius) {
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.48, 0, TAU);
+  ctx.fill();
+}
+
+function drawNeedle(radius) {
+  ctx.beginPath();
+  ctx.moveTo(radius * 1.25, 0);
+  ctx.lineTo(-radius, -radius * 0.35);
+  ctx.lineTo(-radius * 0.45, 0);
+  ctx.lineTo(-radius, radius * 0.35);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawShieldCarrier(radius) {
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-radius * 0.48, -radius * 0.48, radius * 0.96, radius * 0.96);
+}
+
+function drawWeakPoint(boss) {
+  const wx = boss.x + Math.cos(boss.weakAngle) * boss.radius * 0.78;
+  const wy = boss.y + Math.sin(boss.weakAngle) * boss.radius * 0.56;
+  drawGlowCircle(wx, wy, 10, "#ffd166");
+}
+
+function drawHealthBar(enemy) {
+  const width = enemy.type === "boss" ? 170 : enemy.radius * 2;
+  const y = enemy.y - enemy.radius - 13;
+  ctx.fillStyle = "#1f2635";
+  ctx.fillRect(enemy.x - width / 2, y, width, 5);
+  ctx.fillStyle = enemy.type === "boss" ? "#ff5a6b" : "#77ef8f";
+  ctx.fillRect(enemy.x - width / 2, y, width * clamp(enemy.hp / enemy.maxHp, 0, 1), 5);
+}
+
+function drawPickup(pickup) {
+  const bob = Math.sin(state.time * 5 + pickup.spin) * 3;
+  if (pickup.type === "coin") {
+    drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius, "#ffd166");
+    ctx.fillStyle = "#5b3d00";
+    ctx.fillRect(pickup.x - 1, pickup.y + bob - 4, 2, 8);
+  } else {
+    ctx.save();
+    ctx.translate(pickup.x, pickup.y + bob);
+    ctx.rotate(pickup.spin);
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = "#77ef8f";
+    ctx.fillStyle = "#77ef8f";
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(7, 0);
+    ctx.lineTo(0, 8);
+    ctx.lineTo(-7, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawMine(mine) {
+  const pulse = 1 + Math.sin(mine.pulse * 8) * 0.16;
+  drawGlowCircle(mine.x, mine.y, mine.radius * pulse, "#ff8b45");
+}
+
+function drawPlayerBullet(bullet) {
+  ctx.save();
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = bullet.color;
+  ctx.strokeStyle = bullet.color;
+  ctx.lineWidth = bullet.radius;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(bullet.x, bullet.y);
+  ctx.lineTo(bullet.x - bullet.vx * 0.025, bullet.y - bullet.vy * 0.025);
+  ctx.stroke();
   ctx.restore();
 }
 
-function drawCircle(x, y, radius, color, alpha = 1) {
-  ctx.globalAlpha = alpha;
+function drawEnemyBullet(bullet) {
+  drawGlowCircle(bullet.x, bullet.y, bullet.radius, bullet.color || "#ffcf5a");
+}
+
+function drawGlowCircle(x, y, radius, color) {
+  ctx.save();
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = color;
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, TAU);
   ctx.fill();
+  ctx.restore();
+}
+
+function drawParticle(particle) {
+  const alpha = clamp(particle.life / particle.maxLife, 0, 1);
+  ctx.save();
+  ctx.globalAlpha = particle.kind === "smoke" ? alpha * 0.35 : alpha;
+  ctx.fillStyle = particle.color;
+  if (particle.kind === "ring") {
+    ctx.strokeStyle = particle.color;
+    ctx.lineWidth = 3 * alpha;
+    ctx.beginPath();
+    ctx.arc(particle.x, particle.y, particle.radius, 0, TAU);
+    ctx.stroke();
+  } else if (particle.kind === "debris") {
+    ctx.translate(particle.x, particle.y);
+    ctx.rotate(particle.spin * state.time);
+    ctx.fillRect(-particle.radius * 0.5, -particle.radius * 0.3, particle.radius, particle.radius * 0.6);
+  } else {
+    ctx.beginPath();
+    ctx.arc(particle.x, particle.y, particle.radius, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawNumbers() {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = "700 14px system-ui, sans-serif";
+  for (const number of state.numbers) {
+    ctx.globalAlpha = clamp(number.life / number.maxLife, 0, 1);
+    ctx.fillStyle = number.color;
+    ctx.fillText(number.text, number.x, number.y);
+  }
+  ctx.restore();
   ctx.globalAlpha = 1;
 }
 
@@ -656,7 +1677,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => {
+  resizeCanvas();
+  if (state) state.background = createBackground(canvas.clientWidth, canvas.clientHeight, state.planetIndex);
+  draw();
+});
 
 canvas.addEventListener("pointerdown", (event) => {
   pointerActive = true;
@@ -679,11 +1704,16 @@ function updatePointer(event) {
   els.touchStick.querySelector("span").style.transform = `translate(${x * 24}px, ${y * 24}px)`;
 }
 
-els.startButton.addEventListener("click", startGame);
-els.helpButton.addEventListener("click", showHelp);
+els.overlay.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  handleOverlayAction(action);
+});
+els.helpButton.addEventListener("click", renderHelp);
 els.restartButton.addEventListener("click", startGame);
 els.pauseButton.addEventListener("click", pauseGame);
 
 resizeCanvas();
 state = makeState();
+updateHud();
+renderMenu();
 draw();
