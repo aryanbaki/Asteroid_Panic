@@ -304,7 +304,7 @@ const UPGRADE_POOL = [
   { id: "poison", name: "Poison", desc: "Shots leave damage over time.", apply: (p) => (p.poison += 4) },
   { id: "fire", name: "Fire Damage", desc: "Burn enemies after impact.", apply: (p) => (p.burn += 5) },
   { id: "drone", name: "Drone Companion", desc: "A helper orb fires beside you.", apply: (p) => (p.drones += 1) },
-  { id: "dash", name: "Dash", desc: "Double tap movement with smoother bursts.", apply: (p) => (p.dash += 1) },
+  { id: "dash", name: "Dash", desc: "Double tap W to ram small enemies. Each rank hits larger targets.", apply: (p) => (p.dash = Math.min(3, p.dash + 1)) },
   { id: "emp", name: "EMP Blast", desc: "Periodic pulse damages nearby enemies.", apply: (p) => (p.emp += 1) },
   { id: "turret", name: "Auto Turret", desc: "Earth fires a defensive shot.", apply: (p) => (p.turrets += 1) },
   { id: "luck", name: "Lucky Drops", desc: "Enemies drop more coins and crystals.", apply: (p) => (p.luck += 0.18) },
@@ -315,6 +315,7 @@ let keys = new Set();
 let pointerVector = { x: 0, y: 0 };
 let pointerActive = false;
 let lastTime = 0;
+let lastThrustTap = -Infinity;
 let state = null;
 let save = loadSave();
 let settings = loadSettings();
@@ -526,7 +527,9 @@ function makePlayer(world, ship, difficulty) {
     poison: 0,
     burn: 0,
     drones: 0,
-    dash: 0,
+    dash: 1,
+    dashTime: 0,
+    dashCooldown: 0,
     emp: 0,
     turrets: 0,
     luck: 0,
@@ -678,9 +681,9 @@ function renderHelp() {
     <h1>How to Play</h1>
     <p>Protect Earth, clear three waves, beat the planet boss, then unlock the next planet.</p>
     <div class="how-to">
-      <div><strong>Controls</strong><span>W or Up thrusts, A/D or Left/Right turns, and S or Down reverses. Hold Space to fire in your current direction. Drag on mobile to steer, thrust, and fire. Press P to pause.</span></div>
+      <div><strong>Controls</strong><span>W or Up thrusts, A/D or Left/Right turns, and S or Down reverses. Double tap W to dash from the ship's nose. Hold Space to fire in your current direction. Drag on mobile to steer, thrust, and fire. Press P to pause.</span></div>
       <div><strong>Rewards</strong><span>Green crystals level you up. Gold coins and boss chests feed permanent progression.</span></div>
-      <div><strong>Survival</strong><span>Defeated enemies can drop green health boxes. The planet turret only protects its cyan local range.</span></div>
+      <div><strong>Survival</strong><span>Defeated enemies can drop green health boxes. Dash I destroys small targets, while Dash II and III break progressively larger ones. The planet turret only protects its cyan local range.</span></div>
     </div>
     <div class="menu-actions">${button("Got It", returnAction)}</div>`);
 }
@@ -776,9 +779,13 @@ function resumeGame() {
 function beginUpgrade(reason = "Wave cleared") {
   if (state.mode !== "playing") return;
   state.mode = "upgrade";
-  state.upgradeChoices = [...UPGRADE_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
+  const availableUpgrades = UPGRADE_POOL.filter((upgrade) => upgrade.id !== "dash" || state.player.dash < 3);
+  state.upgradeChoices = availableUpgrades.sort(() => Math.random() - 0.5).slice(0, 3);
   const choices = state.upgradeChoices
-    .map((upgrade, index) => `<button class="upgrade" data-action="upgrade:${index}" type="button"><strong>${upgrade.name}</strong><span>${upgrade.desc}</span></button>`)
+    .map((upgrade, index) => {
+      const name = upgrade.id === "dash" ? `Dash ${["I", "II", "III"][state.player.dash]}` : upgrade.name;
+      return `<button class="upgrade" data-action="upgrade:${index}" type="button"><strong>${name}</strong><span>${upgrade.desc}</span></button>`;
+    })
     .join("");
   setOverlay(`<h1>Upgrade</h1><p>${reason}. Pick one boost before the panic resumes.</p><div class="upgrade-list">${choices}</div>`);
   playTone(520, 0.12, "triangle", 0.07, 180);
@@ -915,15 +922,27 @@ function updatePlayer(dt) {
   const p = state.player;
   const input = getPilotInput();
   const isThrusting = Math.abs(input.thrust) > 0.05;
-  const targetSpeed = p.speed * (p.dash > 0 && isThrusting && keys.has("shift") ? 1.45 : 1);
+  p.dashTime = Math.max(0, p.dashTime - dt);
+  p.dashCooldown = Math.max(0, p.dashCooldown - dt);
+  const isDashing = p.dashTime > 0;
+  const dashSpeed = p.speed * (1.86 + p.dash * 0.22);
+  const targetSpeed = isDashing ? dashSpeed : p.speed;
   if (input.touchAngle !== null) p.angle = lerpAngle(p.angle, input.touchAngle, clamp(10 * dt, 0, 1));
   else p.angle += input.turn * p.turnSpeed * dt;
-  const thrust = input.thrust * p.accel * dt;
-  p.vx += Math.cos(p.angle) * thrust;
-  p.vy += Math.sin(p.angle) * thrust;
-  if (!isThrusting) {
-    p.vx = lerp(p.vx, 0, clamp(p.friction * dt, 0, 1));
-    p.vy = lerp(p.vy, 0, clamp(p.friction * dt, 0, 1));
+  if (isDashing) {
+    p.vx = Math.cos(p.angle) * dashSpeed;
+    p.vy = Math.sin(p.angle) * dashSpeed;
+    if (Math.random() < 0.8) {
+      spark(p.x - Math.cos(p.angle) * 13, p.y - Math.sin(p.angle) * 13, "#43d5ff", 1);
+    }
+  } else {
+    const thrust = input.thrust * p.accel * dt;
+    p.vx += Math.cos(p.angle) * thrust;
+    p.vy += Math.sin(p.angle) * thrust;
+    if (!isThrusting) {
+      p.vx = lerp(p.vx, 0, clamp(p.friction * dt, 0, 1));
+      p.vy = lerp(p.vy, 0, clamp(p.friction * dt, 0, 1));
+    }
   }
   const speed = Math.hypot(p.vx, p.vy);
   if (speed > targetSpeed) {
@@ -940,6 +959,7 @@ function updatePlayer(dt) {
   if (p.shield < p.shieldMax) p.shield = Math.min(p.shieldMax, p.shield + dt * 0.45);
 
   if (speed > 15) exhaust(p.x - Math.cos(p.angle) * 16, p.y - Math.sin(p.angle) * 16, p.trail);
+  if (isDashing) updateDashRam(p);
 
   p.fireCooldown -= dt;
   if (input.firing && p.fireCooldown <= 0) {
@@ -950,6 +970,44 @@ function updatePlayer(dt) {
   updateCompanions(dt);
   updateTurret(dt);
   updateEmp(dt);
+}
+
+function startDash() {
+  const p = state?.player;
+  if (!p || state.mode !== "playing" || p.dash < 1 || p.dashTime > 0 || p.dashCooldown > 0) return;
+  p.dashTime = 0.16 + p.dash * 0.055;
+  p.dashCooldown = Math.max(0.52, 1.08 - p.dash * 0.12);
+  const dashSpeed = p.speed * (1.86 + p.dash * 0.22);
+  p.vx = Math.cos(p.angle) * dashSpeed;
+  p.vy = Math.sin(p.angle) * dashSpeed;
+  p.invuln = Math.max(p.invuln, 0.1);
+  ring(p.x, p.y, "#43d5ff", 14 + p.dash * 9);
+  spark(p.x, p.y, "#9be7ff", 5 + p.dash * 2);
+  playTone(880, 0.09, "triangle", 0.05, 190);
+  vibrate(14);
+}
+
+function updateDashRam(p) {
+  const ramRadius = 12 + p.dash * 10;
+  for (const enemy of state.enemies) {
+    if (enemy.hp <= 0 || enemy.type === "boss" || dist(p, enemy) > p.radius + enemy.radius + 3) continue;
+    if (enemy.radius <= ramRadius) {
+      enemy.hp = 0;
+      enemy.hitFlash = 1;
+      ring(enemy.x, enemy.y, "#ffd166", 12 + p.dash * 7);
+      debris(enemy.x, enemy.y, enemy.color, 5 + p.dash * 2);
+      spawnText(enemy.x, enemy.y - enemy.radius, "RAM", "#ffd166");
+      p.vx *= 0.9;
+      p.vy *= 0.9;
+    } else {
+      p.dashTime = 0;
+      p.dashCooldown = Math.max(p.dashCooldown, 0.85);
+      p.vx *= -0.2;
+      p.vy *= -0.2;
+      spark(p.x, p.y, "#ff8b45", 7);
+      damagePlayer(5);
+    }
+  }
 }
 
 function lerpAngle(a, b, t) {
@@ -1053,6 +1111,7 @@ function updateEmp(dt) {
 function updateEnemies(dt) {
   const p = state.player;
   for (const enemy of state.enemies) {
+    if (enemy.hp <= 0) continue;
     enemy.spawnGrace = Math.max(0, enemy.spawnGrace - dt);
     enemy.cooldown -= dt;
     enemy.charge -= dt;
@@ -1724,6 +1783,22 @@ function drawPlayer() {
   const p = state.player;
   const speed = Math.hypot(p.vx, p.vy);
   const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
+  if (p.dashTime > 0) {
+    const dashLength = 34 + p.dash * 10;
+    ctx.save();
+    ctx.globalAlpha = clamp(p.dashTime * 4, 0.32, 0.82);
+    ctx.fillStyle = "#43d5ff";
+    ctx.shadowColor = "#43d5ff";
+    ctx.shadowBlur = 9;
+    for (let step = 1; step <= 4; step += 1) {
+      const distance = (dashLength / 4) * step;
+      const x = p.x - Math.cos(p.angle) * distance;
+      const y = p.y - Math.sin(p.angle) * distance;
+      const size = Math.max(3, 8 - step);
+      ctx.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+    }
+    ctx.restore();
+  }
   ctx.save();
   ctx.translate(p.x, p.y + idleBob);
   ctx.rotate(p.angle);
@@ -2040,6 +2115,11 @@ function loop(now) {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) event.preventDefault();
+  if (key === "w" && !event.repeat && state?.mode === "playing") {
+    const now = performance.now();
+    if (now - lastThrustTap < 270) startDash();
+    lastThrustTap = now;
+  }
   keys.add(key);
   if (key === "p") pauseGame();
 });

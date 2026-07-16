@@ -30,6 +30,7 @@ https://aryanbaki.github.io/Asteroid_Panic/
 ## Controls
 
 - `W` / Up: thrust forward. `S` / Down: reverse/brake.
+- Double-tap `W` to dash in the ship's current heading. Dash I rams small asteroids and enemies; Dash II and III can break progressively larger targets.
 - `A` / Left and `D` / Right: turn the ship.
 - Hold `Space` to fire. Bullets travel in a straight line from the ship's current heading.
 - On touch screens, drag on the arena to steer, thrust, and fire in the drag direction.
