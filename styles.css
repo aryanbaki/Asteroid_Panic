@@ -277,6 +277,18 @@ canvas {
   opacity: 0.55;
 }
 
+.ship-preview {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 7px;
+  background-image: url("Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Ships.png");
+  background-repeat: no-repeat;
+  background-size: 320px 320px;
+  background-position: var(--ship-x) var(--ship-y);
+  image-rendering: pixelated;
+}
+
 .setting-row {
   display: flex;
   align-items: center;

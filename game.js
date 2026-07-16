@@ -19,8 +19,8 @@ const els = {
 };
 
 const TAU = Math.PI * 2;
-const WORLD_WIDTH = 384;
-const WORLD_HEIGHT = 240;
+const WORLD_WIDTH = 480;
+const WORLD_HEIGHT = 300;
 const SAVE_KEY = "asteroid-panic-save-v2";
 const SETTINGS_KEY = "asteroid-panic-settings-v2";
 const ASSET_MANIFEST_PATH = "Assets/Data/AssetManifest.json";
@@ -126,6 +126,14 @@ class AssetManager {
 // centralized makes replacing or expanding the art pack straightforward.
 const PIXEL_FRAMES = {
   player: { x: 40, y: 0, w: 8, h: 8 },
+  pioneer: { x: 40, y: 0, w: 8, h: 8 },
+  ranger: { x: 48, y: 8, w: 8, h: 8 },
+  comet: { x: 56, y: 8, w: 8, h: 8 },
+  viper: { x: 32, y: 24, w: 8, h: 8 },
+  sentinel: { x: 40, y: 24, w: 8, h: 8 },
+  aurora: { x: 48, y: 24, w: 8, h: 8 },
+  solstice: { x: 40, y: 32, w: 8, h: 8 },
+  nova: { x: 32, y: 40, w: 8, h: 8 },
   scout: { x: 48, y: 8, w: 8, h: 8 },
   drone: { x: 56, y: 8, w: 8, h: 8 },
   tank: { x: 40, y: 24, w: 8, h: 8 },
@@ -142,7 +150,8 @@ const PLANETS = [
     colors: ["#07111f", "#1d3c6f", "#43d5ff"],
     asteroid: "#9aa7bd",
     enemies: ["drone", "asteroid"],
-    mechanic: "Basic flight and manual fire",
+    mechanic: "Flight, aiming, and Guardian turret",
+    difficulty: { waveTargets: [3, 4, 5], maxAlive: 2, spawnInterval: 1.65, enemyHealth: 0.55, enemySpeed: 0.58, bossHealth: 0.55, playerHealth: 40, playerShield: 55, guardianTurret: true, turretDamage: 1.25, turretRate: 0.72 },
     reward: { coins: 90, crystals: 18, title: "Cadet Defender" },
     boss: "warden",
   },
@@ -153,6 +162,7 @@ const PLANETS = [
     asteroid: "#b08968",
     enemies: ["drone", "asteroid", "splitter"],
     mechanic: "Splitting enemies",
+    difficulty: { waveTargets: [5, 7, 9], maxAlive: 3, spawnInterval: 1.28, enemyHealth: 0.74, enemySpeed: 0.76, bossHealth: 0.72, playerHealth: 24, playerShield: 42 },
     reward: { coins: 130, crystals: 26, ship: "Comet" },
     boss: "crusher",
   },
@@ -163,6 +173,7 @@ const PLANETS = [
     asteroid: "#9ad8e8",
     enemies: ["scout", "shooter", "tank"],
     mechanic: "Faster enemies",
+    difficulty: { maxAlive: 5, spawnInterval: 0.92, enemyHealth: 0.94, enemySpeed: 0.92, bossHealth: 0.92 },
     reward: { coins: 170, crystals: 34, color: "Ice Blue" },
     boss: "frostmaw",
   },
@@ -173,6 +184,7 @@ const PLANETS = [
     asteroid: "#7f6db5",
     enemies: ["scout", "laserDrone", "mineLayer"],
     mechanic: "Area denial mines",
+    difficulty: { maxAlive: 7, spawnInterval: 0.76 },
     reward: { coins: 220, crystals: 44, weapon: "Ricochet" },
     boss: "broodmind",
   },
@@ -183,6 +195,7 @@ const PLANETS = [
     asteroid: "#d45a35",
     enemies: ["tank", "kamikaze", "sniper"],
     mechanic: "Chargers and snipers",
+    difficulty: { maxAlive: 8, spawnInterval: 0.68, enemyHealth: 1.08, enemySpeed: 1.04, bossHealth: 1.06 },
     reward: { coins: 280, crystals: 56, trail: "Ember" },
     boss: "magmaCore",
   },
@@ -193,6 +206,7 @@ const PLANETS = [
     asteroid: "#8d8aa9",
     enemies: ["shooter", "shieldCarrier", "teleporter"],
     mechanic: "Shielded formations",
+    difficulty: { maxAlive: 9, spawnInterval: 0.6, enemyHealth: 1.15, enemySpeed: 1.08, bossHealth: 1.12 },
     reward: { coins: 350, crystals: 70, badge: "Void Runner" },
     boss: "voidRay",
   },
@@ -203,6 +217,7 @@ const PLANETS = [
     asteroid: "#de7fff",
     enemies: ["laserDrone", "mineLayer", "teleporter", "splitter"],
     mechanic: "Teleport ambushes",
+    difficulty: { maxAlive: 10, spawnInterval: 0.52, enemyHealth: 1.22, enemySpeed: 1.12, bossHealth: 1.18 },
     reward: { coins: 430, crystals: 86, title: "Nebula Ace" },
     boss: "prismHeart",
   },
@@ -213,6 +228,7 @@ const PLANETS = [
     asteroid: "#5bd68f",
     enemies: ["scout", "tank", "sniper", "shieldCarrier", "teleporter"],
     mechanic: "Combined threats",
+    difficulty: { maxAlive: 11, spawnInterval: 0.45, enemyHealth: 1.3, enemySpeed: 1.16, bossHealth: 1.26 },
     reward: { coins: 540, crystals: 110, ship: "Nova" },
     boss: "overlord",
   },
@@ -245,10 +261,28 @@ const BOSSES = {
 };
 
 const SHIPS = [
-  { name: "Pioneer", color: "#43d5ff", trail: "#77ef8f", unlock: 0, speed: 1, fire: 1 },
-  { name: "Comet", color: "#ffd166", trail: "#ff8b45", unlock: 1, speed: 1.08, fire: 0.96 },
-  { name: "Nova", color: "#ff5aee", trail: "#b083ff", unlock: 7, speed: 1.03, fire: 1.08 },
+  { name: "Pioneer", color: "#43d5ff", trail: "#77ef8f", unlock: 0, speed: 1, fire: 1, sprite: "pioneer" },
+  { name: "Ranger", color: "#9be7ff", trail: "#43d5ff", unlock: 0, speed: 0.96, fire: 1.08, sprite: "ranger" },
+  { name: "Comet", color: "#ffd166", trail: "#ff8b45", unlock: 1, speed: 1.08, fire: 0.96, sprite: "comet" },
+  { name: "Viper", color: "#ff5a6b", trail: "#ff8b45", unlock: 2, speed: 1.14, fire: 0.92, sprite: "viper" },
+  { name: "Sentinel", color: "#77ef8f", trail: "#9be7ff", unlock: 3, speed: 0.9, fire: 1.16, sprite: "sentinel" },
+  { name: "Aurora", color: "#b083ff", trail: "#ff5aee", unlock: 4, speed: 1.02, fire: 1.1, sprite: "aurora" },
+  { name: "Solstice", color: "#ffd166", trail: "#77ef8f", unlock: 6, speed: 1.1, fire: 1.04, sprite: "solstice" },
+  { name: "Nova", color: "#ff5aee", trail: "#b083ff", unlock: 7, speed: 1.03, fire: 1.08, sprite: "nova" },
 ];
+
+const DEFAULT_DIFFICULTY = {
+  maxAlive: 6,
+  spawnInterval: 0.86,
+  enemyHealth: 1,
+  enemySpeed: 1,
+  bossHealth: 1,
+  playerHealth: 0,
+  playerShield: 25,
+  guardianTurret: false,
+  turretDamage: 0.7,
+  turretRate: 1.25,
+};
 
 const UPGRADE_POOL = [
   { id: "damage", name: "+20% Damage", desc: "All shots hit harder.", apply: (p) => (p.damage *= 1.2) },
@@ -388,16 +422,19 @@ function makeState() {
   const width = canvas.width || WORLD_WIDTH;
   const height = canvas.height || WORLD_HEIGHT;
   const planetIndex = clamp(save.selectedPlanet, 0, PLANETS.length - 1);
+  const planet = PLANETS[planetIndex];
+  const difficulty = { ...DEFAULT_DIFFICULTY, ...planet.difficulty };
   const ship = SHIPS[save.selectedShip] || SHIPS[0];
   return {
     mode: "menu",
     screen: "menu",
     planetIndex,
-    planet: PLANETS[planetIndex],
+    planet,
+    difficulty,
     time: 0,
     wave: 1,
     waveInPlanet: 1,
-    waveTarget: 12,
+    waveTarget: getWaveTarget(difficulty, 1, planetIndex),
     killsThisWave: 0,
     spawnTimer: 0.8,
     boss: null,
@@ -405,7 +442,7 @@ function makeState() {
     upgradeChoices: [],
     camera: { x: 0, y: 0, shake: 0, flash: 0 },
     background: createBackground(width, height, planetIndex),
-    player: makePlayer(width, height, ship),
+    player: makePlayer(width, height, ship, difficulty),
     bullets: [],
     enemyBullets: [],
     enemies: [],
@@ -416,27 +453,32 @@ function makeState() {
     rewards: { coins: 0, crystals: 0, score: 0 },
     transition: 0,
     turretCooldown: 0,
+    guardianAngle: -Math.PI / 2,
     empCooldown: 4,
   };
 }
 
-function makePlayer(width, height, ship) {
+function getWaveTarget(difficulty, waveInPlanet, planetIndex = 0) {
+  return difficulty.waveTargets?.[waveInPlanet - 1] ?? 12 + planetIndex * 4 + waveInPlanet * 5;
+}
+
+function makePlayer(width, height, ship, difficulty) {
   return {
     x: width / 2,
-    y: height / 2,
+    y: height * 0.76,
     vx: 0,
     vy: 0,
     angle: -Math.PI / 2,
     recoil: 0,
     radius: 13,
-    speed: 175 * ship.speed,
-    accel: 1080,
+    speed: 205 * ship.speed,
+    accel: 1200,
     friction: 7.4,
     turnSpeed: 4.9,
-    health: 100,
-    maxHealth: 100,
-    shield: 25,
-    shieldMax: 25,
+    health: 100 + difficulty.playerHealth,
+    maxHealth: 100 + difficulty.playerHealth,
+    shield: difficulty.playerShield,
+    shieldMax: difficulty.playerShield,
     shieldPulse: 0,
     level: 1,
     xp: 0,
@@ -460,6 +502,7 @@ function makePlayer(width, height, ship) {
     invuln: 1.1,
     color: ship.color,
     trail: ship.trail,
+    sprite: PIXEL_FRAMES[ship.sprite] || PIXEL_FRAMES.player,
   };
 }
 
@@ -549,7 +592,9 @@ function renderShipSelect() {
   const cards = SHIPS.map((ship, index) => {
     const locked = ship.unlock > save.unlockedPlanet;
     const selected = index === save.selectedShip ? "Selected" : "Choose";
+    const frame = PIXEL_FRAMES[ship.sprite] || PIXEL_FRAMES.player;
     return `<button type="button" class="screen-card ${locked ? "locked" : ""}" data-action="${locked ? "locked" : `select-ship:${index}`}">
+      <span class="ship-preview" style="--ship-x:${frame.x * -4}px; --ship-y:${frame.y * -4}px"></span>
       <strong>${ship.name}</strong>
       <span>${locked ? `Unlock on planet ${ship.unlock + 1}` : selected}</span>
       <span>Speed x${ship.speed.toFixed(2)} | Fire x${ship.fire.toFixed(2)}</span>
@@ -744,26 +789,26 @@ function spawnWave(dt) {
   state.spawnTimer -= dt;
   if (state.spawnTimer > 0) return;
 
-  const aliveBudget = state.enemies.length < 10 + state.planetIndex * 2;
+  const aliveBudget = state.enemies.length < state.difficulty.maxAlive + Math.min(2, state.waveInPlanet - 1);
   if (!aliveBudget || state.killsThisWave + state.enemies.length >= state.waveTarget) return;
 
   const type = choose(state.planet.enemies);
   spawnAtEdge(type);
-  state.spawnTimer = Math.max(0.22, 1.05 - state.planetIndex * 0.06 - state.waveInPlanet * 0.08);
+  state.spawnTimer = Math.max(state.difficulty.spawnInterval, 0.22, 1.05 - state.planetIndex * 0.06 - state.waveInPlanet * 0.08);
 }
 
 function advanceWave() {
   state.wave += 1;
   state.waveInPlanet += 1;
   state.killsThisWave = 0;
-  state.waveTarget = 12 + state.planetIndex * 4 + state.waveInPlanet * 5;
+  state.waveTarget = getWaveTarget(state.difficulty, state.waveInPlanet, state.planetIndex);
   state.camera.flash = 0.22;
   beginUpgrade("Wave cleared");
 }
 
 function spawnBoss() {
   const data = BOSSES[state.planet.boss];
-  const hpScale = 1 + state.planetIndex * 0.28;
+  const hpScale = (1 + state.planetIndex * 0.28) * state.difficulty.bossHealth;
   state.boss = {
     ...data,
     type: "boss",
@@ -813,9 +858,9 @@ function spawnEnemy(type, x, y) {
     type,
     x,
     y,
-    hp: cfg.hp * scale,
-    maxHp: cfg.hp * scale,
-    speed: cfg.speed * (1 + state.planetIndex * 0.035),
+    hp: cfg.hp * scale * state.difficulty.enemyHealth,
+    maxHp: cfg.hp * scale * state.difficulty.enemyHealth,
+    speed: cfg.speed * (1 + state.planetIndex * 0.035) * state.difficulty.enemySpeed,
     cooldown: rand(0.4, 1.8),
     charge: rand(0.6, 1.5),
     angle: rand(0, TAU),
@@ -936,14 +981,17 @@ function updateCompanions(dt) {
 
 function updateTurret(dt) {
   const p = state.player;
-  if (!p.turrets || !state.enemies.length) return;
+  const hasGuardian = state.difficulty.guardianTurret;
+  const turretCount = p.turrets + (hasGuardian ? 1 : 0);
+  if (!turretCount || !state.enemies.length) return;
   state.turretCooldown -= dt;
   if (state.turretCooldown <= 0) {
-  const earth = { x: canvas.width / 2, y: canvas.height / 2 };
+    const earth = { x: canvas.width / 2, y: canvas.height / 2 };
     const target = state.enemies.reduce((best, enemy) => (dist(earth, enemy) < dist(earth, best) ? enemy : best));
     const angle = Math.atan2(target.y - earth.y, target.x - earth.x);
-    spawnBullet(earth.x, earth.y, angle, 0.7);
-    state.turretCooldown = Math.max(0.35, 1.25 - p.turrets * 0.12);
+    state.guardianAngle = angle;
+    spawnBullet(earth.x + Math.cos(angle) * 18, earth.y + Math.sin(angle) * 18, angle, hasGuardian ? state.difficulty.turretDamage : 0.7);
+    state.turretCooldown = hasGuardian ? state.difficulty.turretRate : Math.max(0.35, 1.25 - p.turrets * 0.12);
   }
 }
 
@@ -1462,6 +1510,7 @@ function draw() {
   ctx.save();
   ctx.translate(rand(-shake, shake), rand(-shake, shake));
   drawPlanet(w, h);
+  drawGuardianTurret();
   for (const pickup of state.pickups) drawPickup(pickup);
   for (const mine of state.mines) drawMine(mine);
   for (const bullet of state.bullets) drawPlayerBullet(bullet);
@@ -1528,31 +1577,44 @@ function drawBackground(w, h) {
 function drawPlanet(w, h) {
   const x = w / 2;
   const y = h / 2;
-  const r = 52;
+  const r = 56;
   const colors = state.planet.colors;
   ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 2.2);
-  halo.addColorStop(0, `${colors[2]}55`);
-  halo.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = halo;
-  ctx.beginPath();
-  ctx.arc(x, y, r * 2.1, 0, TAU);
-  ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
-  const gradient = ctx.createRadialGradient(x - 18, y - 18, 8, x, y, r);
-  gradient.addColorStop(0, colors[2]);
-  gradient.addColorStop(0.5, colors[1]);
-  gradient.addColorStop(1, colors[0]);
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.16)";
-  ctx.beginPath();
-  ctx.ellipse(x - 10, y - 10, 18, 8, -0.4, 0, TAU);
-  ctx.ellipse(x + 20, y + 12, 16, 7, 0.4, 0, TAU);
-  ctx.fill();
+  const tile = 8;
+  for (let gy = -8; gy <= 8; gy += 1) {
+    for (let gx = -8; gx <= 8; gx += 1) {
+      const distance = gx * gx + gy * gy;
+      if (distance > 49) continue;
+      const edge = distance > 37;
+      const pattern = Math.abs((gx * 11 + gy * 7 + state.planetIndex * 5) % 9);
+      ctx.fillStyle = edge ? colors[0] : pattern < 2 ? colors[2] : pattern < 5 ? colors[1] : colors[0];
+      ctx.fillRect(x + gx * tile - tile / 2, y + gy * tile - tile / 2, tile, tile);
+    }
+  }
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = colors[2];
+  for (let i = -5; i <= 5; i += 1) ctx.fillRect(x + i * tile - 2, y - 38, 4, 4);
+  ctx.restore();
+}
+
+function drawGuardianTurret() {
+  if (!state.difficulty.guardianTurret) return;
+  const x = canvas.width / 2;
+  const y = canvas.height / 2;
+  const bob = Math.sin(state.time * 3) * 1.5;
+  const drewTurret = assetManager.drawSprite(ctx, "pixel.ships", PIXEL_FRAMES.sentinel, x, y + bob, 4, {
+    rotation: state.guardianAngle + Math.PI / 2,
+    shadowColor: "#77ef8f",
+    shadowBlur: 5,
+  });
+  if (drewTurret) return;
+  ctx.save();
+  ctx.translate(x, y + bob);
+  ctx.rotate(state.guardianAngle);
+  ctx.fillStyle = "#77ef8f";
+  ctx.fillRect(-10, -9, 20, 18);
+  ctx.fillStyle = "#d9fff0";
+  ctx.fillRect(4, -3, 18, 6);
   ctx.restore();
 }
 
@@ -1560,7 +1622,7 @@ function drawPlayer() {
   const p = state.player;
   const speed = Math.hypot(p.vx, p.vy);
   const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
-  const drewShip = assetManager.drawSprite(ctx, "pixel.ships", PIXEL_FRAMES.player, p.x, p.y + idleBob, 5 + p.recoil * 0.25, {
+  const drewShip = assetManager.drawSprite(ctx, "pixel.ships", p.sprite, p.x, p.y + idleBob, 5 + p.recoil * 0.25, {
     rotation: p.angle + Math.PI / 2,
     shadowColor: p.color,
     shadowBlur: 6,
