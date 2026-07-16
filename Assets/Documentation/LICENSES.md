@@ -42,10 +42,18 @@ Designer: CodeMan38
 `PressStart2P-Regular.ttf` is distributed under the SIL Open Font License, Version 1.1.
 The font is bundled for in-game UI and damage-number text only.
 
+## Kenney Planets
+
+Source: https://kenney.nl/assets/planets
+Author: Kenney
+
+The original planet artwork is licensed under CC0 1.0 Universal. The eight included
+planet images are downsampled derivatives used as integrated game artwork.
+
 ## Asset Search Notes
 
 Itch.io's free pixel-art/UI listings were reviewed alongside Kenney and OpenGameArt.
 Gustavo Vituri's 8x8 Space Shooter Asset Pack was selected because it supplies a cohesive
 set of pixel ships, enemies, projectiles, backgrounds, effects, and UI elements under a
-commercial-use-friendly permission statement. Kenney's Pixel Shmup and UI Pack - Sci-Fi
-were also verified as CC0 alternatives.
+commercial-use-friendly permission statement. Kenney's CC0 Planets pack was added for
+varied planet visuals, then downsampled to preserve the game's pixel presentation.

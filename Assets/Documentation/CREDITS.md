@@ -7,6 +7,8 @@ Asteroid Panic uses free commercial-use art assets from:
 - Lorc: alien skull, crystal, shield icons
 - Gustavo Vituri: 8x8 Space Shooter Asset Pack for the pixel ships, enemy silhouettes,
   projectiles, pickups, starfield art, and pixel UI visual language.
+- Kenney: CC0 Planets pack, downsampled and rendered with nearest-neighbor scaling for
+  the eight distinct planet visuals.
 
 Primary pixel-art source: https://gvituri.itch.io/space-shooter
 

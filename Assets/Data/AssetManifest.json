@@ -14,6 +14,13 @@
       "license": "Free for commercial use and modification; no standalone redistribution",
       "site": "https://gvituri.itch.io/space-shooter",
       "notes": "The source page explicitly permits personal and commercial projects and modification. Credit is appreciated but not required. Documentation is included in Assets/Documentation/LICENSES.md."
+    },
+    "kenneyPlanets": {
+      "name": "Kenney Planets",
+      "author": "Kenney",
+      "license": "CC0 1.0 Universal",
+      "site": "https://kenney.nl/assets/planets",
+      "notes": "Planet images are downsampled and rendered with nearest-neighbor scaling to fit the game pixel style."
     }
   },
   "images": {
@@ -123,7 +130,15 @@
       "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Characters.png",
       "source": "pixelShmup",
       "title": "Pixel alien characters"
-    }
+    },
+    "kenney.planet.0": { "path": "Assets/Art/Planets/kenney-planet-0.png", "source": "kenneyPlanets", "title": "Tutorial planet" },
+    "kenney.planet.1": { "path": "Assets/Art/Planets/kenney-planet-1.png", "source": "kenneyPlanets", "title": "Asteroid Belt planet" },
+    "kenney.planet.2": { "path": "Assets/Art/Planets/kenney-planet-2.png", "source": "kenneyPlanets", "title": "Frozen Sector planet" },
+    "kenney.planet.3": { "path": "Assets/Art/Planets/kenney-planet-3.png", "source": "kenneyPlanets", "title": "Alien Hive planet" },
+    "kenney.planet.4": { "path": "Assets/Art/Planets/kenney-planet-4.png", "source": "kenneyPlanets", "title": "Volcanic Planet" },
+    "kenney.planet.5": { "path": "Assets/Art/Planets/kenney-planet-5.png", "source": "kenneyPlanets", "title": "Deep Space planet" },
+    "kenney.planet.6": { "path": "Assets/Art/Planets/kenney-planet-6.png", "source": "kenneyPlanets", "title": "Nebula Core planet" },
+    "kenney.planet.7": { "path": "Assets/Art/Planets/kenney-planet-7.png", "source": "kenneyPlanets", "title": "Alien Homeworld" }
   },
   "audio": {},
   "atlases": {},

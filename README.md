@@ -34,11 +34,11 @@ https://aryanbaki.github.io/Asteroid_Panic/
 - Hold `Space` to fire. Bullets travel in a straight line from the ship's current heading.
 - On touch screens, drag on the arena to steer, thrust, and fire in the drag direction.
 - Use `Pause` or press `P` to pause.
-- Fly inside the cyan repair field around the planet to restore health and shield for free.
+- Collect animated green health boxes dropped by defeated enemies to restore health and a small amount of shield. The cyan ring marks the local defensive range of the planet's turret, not a passive healing zone.
 
 ## Game Loop
 
-Asteroids and aliens drift toward Earth, the player pilots a heading-based ship, enemies drop crystals, and upgrades appear after levels or cleared waves. Every fifth wave introduces the Mother Ship mini boss.
+Each planet is a scrolling sector several screens wide. The camera follows the heading-based player ship as it travels beyond the planet turret's cyan defensive radius, finds enemies across the sector, gathers pickups, and returns to protect the central planet. Enemies drop crystals, coins, and animated health boxes; upgrades appear after levels or cleared waves.
 
 Planet 1 is a deliberately gentle tutorial: small waves, slower and weaker enemies, extra starting shield, and a permanent Guardian turret on the pixel planet. Planet 2 remains forgiving but removes the Guardian so players can apply the controls on their own. The arena uses a larger 480 x 300 logical map while retaining the 16:10 layout.
 

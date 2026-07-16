@@ -90,6 +90,7 @@ class AssetManager {
     const width = options.width || size;
     const height = options.height || size;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = options.alpha ?? 1;
     ctx.translate(x, y);
     ctx.rotate(options.rotation || 0);
@@ -151,7 +152,7 @@ const PLANETS = [
     asteroid: "#9aa7bd",
     enemies: ["drone", "asteroid"],
     mechanic: "Flight, aiming, and Guardian turret",
-    difficulty: { waveTargets: [2, 3, 4], maxAlive: 2, spawnInterval: 1.9, enemyHealth: 0.4, enemySpeed: 0.45, bossHealth: 0.34, playerHealth: 90, playerShield: 100, guardianTurret: true, turretDamage: 1.45, turretRate: 0.6 },
+    difficulty: { waveTargets: [2, 3, 4], maxAlive: 2, spawnInterval: 1.9, enemyHealth: 0.4, enemySpeed: 0.45, bossHealth: 0.34, playerHealth: 35, playerShield: 60, guardianTurret: true, turretDamage: 1.45, turretRate: 0.6 },
     reward: { coins: 90, crystals: 18, title: "Cadet Defender" },
     boss: "warden",
   },
@@ -162,7 +163,7 @@ const PLANETS = [
     asteroid: "#b08968",
     enemies: ["drone", "asteroid", "splitter"],
     mechanic: "Splitting enemies",
-    difficulty: { waveTargets: [4, 5, 6], maxAlive: 2, spawnInterval: 1.55, enemyHealth: 0.52, enemySpeed: 0.58, bossHealth: 0.46, playerHealth: 70, playerShield: 85 },
+    difficulty: { waveTargets: [4, 5, 6], maxAlive: 2, spawnInterval: 1.55, enemyHealth: 0.52, enemySpeed: 0.58, bossHealth: 0.46, playerHealth: 25, playerShield: 45 },
     reward: { coins: 130, crystals: 26, ship: "Comet" },
     boss: "crusher",
   },
@@ -282,8 +283,8 @@ const DEFAULT_DIFFICULTY = {
   bossSize: 0.72,
   bossVolley: 0.55,
   bossProjectileSpeed: 0.62,
-  playerHealth: 60,
-  playerShield: 75,
+  playerHealth: 15,
+  playerShield: 35,
   guardianTurret: false,
   turretDamage: 0.7,
   turretRate: 1.25,
@@ -430,12 +431,15 @@ function makeState() {
   const planet = PLANETS[planetIndex];
   const difficulty = { ...DEFAULT_DIFFICULTY, ...planet.difficulty };
   const ship = SHIPS[save.selectedShip] || SHIPS[0];
+  const world = createWorld(planetIndex);
+  const player = makePlayer(world, ship, difficulty);
   return {
     mode: "menu",
     screen: "menu",
     planetIndex,
     planet,
     difficulty,
+    world,
     time: 0,
     wave: 1,
     waveInPlanet: 1,
@@ -445,9 +449,14 @@ function makeState() {
     boss: null,
     bossAnnounced: false,
     upgradeChoices: [],
-    camera: { x: 0, y: 0, shake: 0, flash: 0 },
+    camera: {
+      x: clamp(player.x - width / 2, 0, world.width - width),
+      y: clamp(player.y - height / 2, 0, world.height - height),
+      shake: 0,
+      flash: 0,
+    },
     background: createBackground(width, height, planetIndex),
-    player: makePlayer(width, height, ship, difficulty),
+    player,
     bullets: [],
     enemyBullets: [],
     enemies: [],
@@ -463,14 +472,31 @@ function makeState() {
   };
 }
 
+function createWorld(planetIndex) {
+  const width = 1440 + planetIndex * 96;
+  const height = 900 + planetIndex * 64;
+  return {
+    width,
+    height,
+    planet: {
+      x: width / 2,
+      y: height / 2,
+      radius: 72,
+      repairRadius: 142,
+      turretRadius: 270,
+      assetId: `kenney.planet.${planetIndex}`,
+    },
+  };
+}
+
 function getWaveTarget(difficulty, waveInPlanet, planetIndex = 0) {
   return difficulty.waveTargets?.[waveInPlanet - 1] ?? 12 + planetIndex * 4 + waveInPlanet * 5;
 }
 
-function makePlayer(width, height, ship, difficulty) {
+function makePlayer(world, ship, difficulty) {
   return {
-    x: width / 2,
-    y: height * 0.76,
+    x: world.planet.x,
+    y: world.planet.y + 120,
     vx: 0,
     vy: 0,
     angle: -Math.PI / 2,
@@ -508,7 +534,6 @@ function makePlayer(width, height, ship, difficulty) {
     color: ship.color,
     trail: ship.trail,
     sprite: PIXEL_FRAMES[ship.sprite] || PIXEL_FRAMES.player,
-    homeRepair: false,
   };
 }
 
@@ -655,7 +680,7 @@ function renderHelp() {
     <div class="how-to">
       <div><strong>Controls</strong><span>W or Up thrusts, A/D or Left/Right turns, and S or Down reverses. Hold Space to fire in your current direction. Drag on mobile to steer, thrust, and fire. Press P to pause.</span></div>
       <div><strong>Rewards</strong><span>Green crystals level you up. Gold coins and boss chests feed permanent progression.</span></div>
-      <div><strong>Survival</strong><span>Fly close to the planet's cyan repair field to restore health and shield. Enemies never spawn directly on you.</span></div>
+      <div><strong>Survival</strong><span>Defeated enemies can drop green health boxes. The planet turret only protects its cyan local range.</span></div>
     </div>
     <div class="menu-actions">${button("Got It", returnAction)}</div>`);
 }
@@ -799,7 +824,7 @@ function spawnWave(dt) {
   if (!aliveBudget || state.killsThisWave + state.enemies.length >= state.waveTarget) return;
 
   const type = choose(state.planet.enemies);
-  spawnAtEdge(type);
+  spawnInSector(type);
   state.spawnTimer = Math.max(state.difficulty.spawnInterval, 0.22, 1.05 - state.planetIndex * 0.06 - state.waveInPlanet * 0.08);
 }
 
@@ -815,12 +840,13 @@ function advanceWave() {
 function spawnBoss() {
   const data = BOSSES[state.planet.boss];
   const hpScale = (1 + state.planetIndex * 0.28) * state.difficulty.bossHealth;
+  const home = state.world.planet;
   state.boss = {
     ...data,
     type: "boss",
-    x: canvas.width / 2,
-    y: -data.radius * state.difficulty.bossSize - 18,
-    targetY: Math.max(48, canvas.height * 0.22),
+    x: home.x,
+    y: home.y - 420,
+    targetY: home.y - 260,
     hp: data.hp * hpScale,
     maxHp: data.hp * hpScale,
     radius: data.radius * state.difficulty.bossSize,
@@ -838,19 +864,22 @@ function spawnBoss() {
   state.camera.flash = 0.65;
   state.camera.shake = 12;
   startMusic("boss");
-  spawnText(canvas.width / 2, 38, `${data.name} Appears`, data.color);
+  spawnText(home.x, home.y - 318, `${data.name} Appears`, data.color);
   playTone(90, 0.55, "sawtooth", 0.09, -35);
   vibrate([50, 40, 80]);
 }
 
-function spawnAtEdge(type) {
-  const margin = 32;
+function spawnInSector(type) {
+  const world = state.world;
+  const home = world.planet;
   const attempts = 16;
   for (let i = 0; i < attempts; i += 1) {
-    const side = Math.floor(Math.random() * 4);
-    const x = side === 0 ? -margin : side === 1 ? canvas.width + margin : rand(0, canvas.width);
-    const y = side === 2 ? -margin : side === 3 ? canvas.height + margin : rand(0, canvas.height);
-    if (dist({ x, y }, state.player) < 118) continue;
+    const angle = rand(0, TAU);
+    const distance = rand(260, 520);
+    const x = clamp(state.player.x + Math.cos(angle) * distance, 28, world.width - 28);
+    const y = clamp(state.player.y + Math.sin(angle) * distance, 28, world.height - 28);
+    if (dist({ x, y }, state.player) < 230) continue;
+    if (dist({ x, y }, home) < home.repairRadius && Math.random() < 0.75) continue;
     if (state.enemies.some((enemy) => Math.hypot(enemy.x - x, enemy.y - y) < enemy.radius + 28)) continue;
     spawnEnemy(type, x, y);
     return;
@@ -903,13 +932,12 @@ function updatePlayer(dt) {
   }
   p.x += p.vx * dt;
   p.y += p.vy * dt;
-  p.x = clamp(p.x, p.radius, canvas.width - p.radius);
-  p.y = clamp(p.y, p.radius, canvas.height - p.radius);
+  p.x = clamp(p.x, p.radius, state.world.width - p.radius);
+  p.y = clamp(p.y, p.radius, state.world.height - p.radius);
   p.invuln = Math.max(0, p.invuln - dt);
   p.recoil = Math.max(0, p.recoil - dt * 8);
   p.shieldPulse = Math.max(0, p.shieldPulse - dt * 3);
-  if (p.shield < p.shieldMax) p.shield = Math.min(p.shieldMax, p.shield + dt * 1.6);
-  updateHomeRepair(p, dt);
+  if (p.shield < p.shieldMax) p.shield = Math.min(p.shieldMax, p.shield + dt * 0.45);
 
   if (speed > 15) exhaust(p.x - Math.cos(p.angle) * 16, p.y - Math.sin(p.angle) * 16, p.trail);
 
@@ -922,15 +950,6 @@ function updatePlayer(dt) {
   updateCompanions(dt);
   updateTurret(dt);
   updateEmp(dt);
-}
-
-function updateHomeRepair(p, dt) {
-  const repairRadius = 112;
-  p.homeRepair = Math.hypot(p.x - canvas.width / 2, p.y - canvas.height / 2) < repairRadius;
-  if (!p.homeRepair) return;
-  p.health = Math.min(p.maxHealth, p.health + dt * 20);
-  p.shield = Math.min(p.shieldMax, p.shield + dt * 18);
-  if (!settings.lowFx && Math.random() < dt * 12) spark(p.x + rand(-8, 8), p.y + rand(-8, 8), "#77ef8f", 1);
 }
 
 function lerpAngle(a, b, t) {
@@ -1004,8 +1023,9 @@ function updateTurret(dt) {
   if (!turretCount || !state.enemies.length) return;
   state.turretCooldown -= dt;
   if (state.turretCooldown <= 0) {
-    const earth = { x: canvas.width / 2, y: canvas.height / 2 };
+    const earth = state.world.planet;
     const target = state.enemies.reduce((best, enemy) => (dist(earth, enemy) < dist(earth, best) ? enemy : best));
+    if (dist(earth, target) > earth.turretRadius) return;
     const angle = Math.atan2(target.y - earth.y, target.x - earth.x);
     state.guardianAngle = angle;
     spawnBullet(earth.x + Math.cos(angle) * 18, earth.y + Math.sin(angle) * 18, angle, hasGuardian ? state.difficulty.turretDamage : 0.7);
@@ -1136,9 +1156,9 @@ function shootEnemy(enemy, angle, speed) {
 
 function safeTeleport(enemy) {
   for (let i = 0; i < 12; i += 1) {
-    const x = rand(26, canvas.width - 26);
-    const y = rand(26, canvas.height - 26);
-    if (dist({ x, y }, state.player) > 210) {
+    const x = rand(26, state.world.width - 26);
+    const y = rand(26, state.world.height - 26);
+    if (dist({ x, y }, state.player) > 280) {
       ring(enemy.x, enemy.y, enemy.color, 10);
       enemy.x = x;
       enemy.y = y;
@@ -1166,11 +1186,11 @@ function updateBullets(dt) {
         life: 0.16,
       });
     }
-    if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > canvas.width)) {
+    if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > state.world.width)) {
       bullet.vx *= -1;
       bullet.pierce -= 1;
     }
-    if (bullet.pierce > 0 && (bullet.y < 0 || bullet.y > canvas.height)) {
+    if (bullet.pierce > 0 && (bullet.y < 0 || bullet.y > state.world.height)) {
       bullet.vy *= -1;
       bullet.pierce -= 1;
     }
@@ -1254,6 +1274,9 @@ function killEnemy(enemy) {
   state.rewards.score += isBoss ? 1000 + state.planetIndex * 250 : enemy.xp * 10;
   dropPickup(enemy.x, enemy.y, "coin", coins);
   dropPickup(enemy.x, enemy.y, "crystal", crystals);
+  if (isBoss || (state.player.health < state.player.maxHealth * 0.82 && Math.random() < 0.42)) {
+    dropPickup(enemy.x, enemy.y, "health", isBoss ? 55 : 18);
+  }
   explode(enemy.x, enemy.y, enemy.color, isBoss ? 70 : 18);
   debris(enemy.x, enemy.y, isBoss ? state.planet.asteroid : enemy.color, isBoss ? 26 : 8);
   playTone(isBoss ? 70 : 170, isBoss ? 0.55 : 0.12, "sawtooth", isBoss ? 0.09 : 0.045, isBoss ? -35 : -60);
@@ -1281,7 +1304,7 @@ function completePlanet() {
   saveGame();
   state.mode = "victory";
   startMusic("menu");
-  for (let i = 0; i < 48; i += 1) spawnParticle("spark", canvas.width / 2, canvas.height / 2, choose(["#77ef8f", "#ffd166", "#43d5ff", "#f5f7fb"]), { speed: rand(80, 360), radius: rand(2, 5), life: rand(0.6, 1.4) });
+  for (let i = 0; i < 48; i += 1) spawnParticle("spark", state.player.x, state.player.y, choose(["#77ef8f", "#ffd166", "#43d5ff", "#f5f7fb"]), { speed: rand(80, 360), radius: rand(2, 5), life: rand(0.6, 1.4) });
   setOverlay(`
     <h1>Planet Cleared</h1>
     <p>${state.planet.name} defended. Reward chest unlocked: ${reward.coins} coins, ${reward.crystals} crystals${reward.ship ? `, ${reward.ship} ship` : ""}.</p>
@@ -1313,14 +1336,14 @@ function damagePlayer(amount) {
 }
 
 function dropPickup(x, y, type, count) {
-  const maxDrops = Math.min(count, type === "coin" ? 8 : 12);
+  const maxDrops = type === "health" ? 1 : Math.min(count, type === "coin" ? 8 : 12);
   for (let i = 0; i < maxDrops; i += 1) {
     state.pickups.push({
-      x: clamp(x + rand(-18, 18), 20, canvas.width - 20),
-      y: clamp(y + rand(-18, 18), 20, canvas.height - 20),
+      x: clamp(x + rand(-18, 18), 20, state.world.width - 20),
+      y: clamp(y + rand(-18, 18), 20, state.world.height - 20),
       vx: rand(-40, 40),
       vy: rand(-50, 15),
-      radius: type === "coin" ? 5 : 6,
+      radius: type === "health" ? 8 : type === "coin" ? 5 : 6,
       type,
       value: Math.ceil(count / maxDrops),
       life: 18,
@@ -1357,10 +1380,15 @@ function updatePickups(dt) {
           p.xpNext = Math.floor(p.xpNext * 1.42 + 4);
           beginUpgrade("Level up");
         }
+      } else if (pickup.type === "health") {
+        p.health = Math.min(p.maxHealth, p.health + pickup.value);
+        p.shield = Math.min(p.shieldMax, p.shield + Math.ceil(pickup.value * 0.2));
+        spawnText(p.x, p.y - 18, `+${pickup.value} HP`, "#77ef8f");
+        sparkle(p.x, p.y, "#77ef8f");
       } else {
         sparkle(p.x, p.y, "#ffd166");
       }
-      playTone(pickup.type === "coin" ? 540 : 740, 0.045, "triangle", 0.025, 140);
+      playTone(pickup.type === "health" ? 820 : pickup.type === "coin" ? 540 : 740, 0.045, "triangle", 0.025, 140);
     }
   }
   state.pickups = state.pickups.filter((pickup) => !pickup.collected && pickup.life > 0);
@@ -1488,6 +1516,14 @@ function updateBackground(dt) {
   bg.shootingStars = bg.shootingStars.filter((star) => star.life > 0);
 }
 
+function updateCamera(dt) {
+  const targetX = clamp(state.player.x - canvas.width / 2, 0, state.world.width - canvas.width);
+  const targetY = clamp(state.player.y - canvas.height / 2, 0, state.world.height - canvas.height);
+  const follow = clamp(dt * 6.5, 0, 1);
+  state.camera.x = lerp(state.camera.x, targetX, follow);
+  state.camera.y = lerp(state.camera.y, targetY, follow);
+}
+
 function update(dt) {
   if (!state || state.mode !== "playing") return;
   state.time += dt;
@@ -1496,6 +1532,7 @@ function update(dt) {
   updateBackground(dt);
   spawnWave(dt);
   updatePlayer(dt);
+  updateCamera(dt);
   updateEnemies(dt);
   updateBullets(dt);
   updateMines(dt);
@@ -1527,9 +1564,9 @@ function draw() {
   drawBackground(w, h);
   const shake = state.camera.shake;
   ctx.save();
-  ctx.translate(rand(-shake, shake), rand(-shake, shake));
-  drawPlanet(w, h);
-  drawRepairField();
+  ctx.translate(-state.camera.x + rand(-shake, shake), -state.camera.y + rand(-shake, shake));
+  drawPlanet();
+  drawTurretRange();
   drawGuardianTurret();
   for (const pickup of state.pickups) drawPickup(pickup);
   for (const mine of state.mines) drawMine(mine);
@@ -1540,6 +1577,7 @@ function draw() {
   drawPlayer();
   drawNumbers();
   ctx.restore();
+  drawMiniMap(w, h);
   if (state.camera.flash > 0) {
     ctx.globalAlpha = state.camera.flash * 0.45;
     ctx.fillStyle = "#ffffff";
@@ -1594,12 +1632,19 @@ function drawBackground(w, h) {
   ctx.globalAlpha = 1;
 }
 
-function drawPlanet(w, h) {
-  const x = w / 2;
-  const y = h / 2;
-  const r = 56;
+function drawPlanet() {
+  const { x, y, radius, assetId } = state.world.planet;
   const colors = state.planet.colors;
   ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  const drewPlanet = assetManager.drawImage(ctx, assetId, x, y, radius * 2, { alpha: 0.96 });
+  if (drewPlanet) {
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = colors[2];
+    for (let i = -5; i <= 5; i += 1) ctx.fillRect(x + i * 10 - 2, y - 42, 4, 4);
+    ctx.restore();
+    return;
+  }
   const tile = 8;
   for (let gy = -8; gy <= 8; gy += 1) {
     for (let gx = -8; gx <= 8; gx += 1) {
@@ -1619,8 +1664,7 @@ function drawPlanet(w, h) {
 
 function drawGuardianTurret() {
   if (!state.difficulty.guardianTurret) return;
-  const x = canvas.width / 2;
-  const y = canvas.height / 2;
+  const { x, y } = state.world.planet;
   const bob = Math.sin(state.time * 3) * 1.5;
   const drewTurret = assetManager.drawSprite(ctx, "pixel.ships", PIXEL_FRAMES.sentinel, x, y + bob, 4, {
     rotation: state.guardianAngle + Math.PI / 2,
@@ -1638,17 +1682,41 @@ function drawGuardianTurret() {
   ctx.restore();
 }
 
-function drawRepairField() {
-  const x = canvas.width / 2;
-  const y = canvas.height / 2;
-  const r = 110;
+function drawTurretRange() {
+  const { x, y, turretRadius } = state.world.planet;
   ctx.save();
-  ctx.globalAlpha = 0.4 + Math.sin(state.time * 3) * 0.12;
-  ctx.fillStyle = "#77ef8f";
-  for (let i = 0; i < 16; i += 1) {
-    const angle = (i / 16) * TAU + state.time * 0.15;
-    ctx.fillRect(Math.round(x + Math.cos(angle) * r) - 2, Math.round(y + Math.sin(angle) * r) - 2, 4, 4);
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = "#43d5ff";
+  for (let i = 0; i < 24; i += 1) {
+    const angle = (i / 24) * TAU - state.time * 0.08;
+    ctx.fillRect(Math.round(x + Math.cos(angle) * turretRadius) - 1, Math.round(y + Math.sin(angle) * turretRadius) - 1, 3, 3);
   }
+  ctx.restore();
+}
+
+function drawMiniMap(w, h) {
+  const width = 82;
+  const height = 52;
+  const x = w - width - 12;
+  const y = 12;
+  const scaleX = width / state.world.width;
+  const scaleY = height / state.world.height;
+  ctx.save();
+  ctx.fillStyle = "rgba(5, 11, 24, 0.84)";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = "#43d5ff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, width, height);
+  ctx.fillStyle = "#77ef8f";
+  ctx.fillRect(x + state.world.planet.x * scaleX - 2, y + state.world.planet.y * scaleY - 2, 5, 5);
+  for (const enemy of state.enemies) {
+    ctx.fillStyle = enemy.type === "boss" ? "#ff5a6b" : "#ffd166";
+    ctx.fillRect(x + enemy.x * scaleX, y + enemy.y * scaleY, 2, 2);
+  }
+  ctx.fillStyle = "#f5f7fb";
+  ctx.fillRect(x + state.player.x * scaleX - 1, y + state.player.y * scaleY - 1, 4, 4);
+  ctx.strokeStyle = "rgba(245, 247, 251, 0.7)";
+  ctx.strokeRect(x + state.camera.x * scaleX, y + state.camera.y * scaleY, canvas.width * scaleX, canvas.height * scaleY);
   ctx.restore();
 }
 
@@ -1663,13 +1731,11 @@ function drawPlayer() {
   ctx.shadowBlur = 7;
   ctx.shadowColor = p.color;
   ctx.fillStyle = p.invuln > 0 ? "#ffffff" : p.color;
-  ctx.beginPath();
-  ctx.moveTo(19 - p.recoil * 3, 0);
-  ctx.lineTo(-13, -12);
-  ctx.lineTo(-8, 0);
-  ctx.lineTo(-13, 12);
-  ctx.closePath();
-  ctx.fill();
+  // Stepped cells keep the original triangle silhouette visibly pixel-built.
+  ctx.fillRect(-12, -8, 6, 16);
+  ctx.fillRect(-6, -6, 6, 12);
+  ctx.fillRect(0, -4, 6, 8);
+  ctx.fillRect(6 - p.recoil * 3, -2, 10, 4);
   ctx.fillStyle = "#f5f7fb";
   ctx.fillRect(0, -3, 8, 6);
   ctx.shadowBlur = 0;
@@ -1851,6 +1917,21 @@ function drawHealthBar(enemy) {
 function drawPickup(pickup) {
   const bob = Math.sin(state.time * 5 + pickup.bobSeed) * 5;
   const scale = 1 + Math.sin(state.time * 4 + pickup.bobSeed) * 0.08;
+  if (pickup.type === "health") {
+    const size = 11 * scale;
+    ctx.save();
+    ctx.translate(Math.round(pickup.x), Math.round(pickup.y + bob));
+    ctx.rotate(pickup.spin * 0.15);
+    ctx.shadowColor = "#77ef8f";
+    ctx.shadowBlur = 7;
+    ctx.fillStyle = "#163f35";
+    ctx.fillRect(-size / 2, -size / 2, size, size);
+    ctx.fillStyle = "#77ef8f";
+    ctx.fillRect(-size * 0.18, -size * 0.38, size * 0.36, size * 0.76);
+    ctx.fillRect(-size * 0.38, -size * 0.18, size * 0.76, size * 0.36);
+    ctx.restore();
+    return;
+  }
   if (pickup.type === "coin") {
     if (assetManager.drawSprite(ctx, "pixel.misc", PIXEL_FRAMES.coin, pickup.x, pickup.y + bob, 2.6 * scale)) return;
     drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius * scale, "#ffd166");
