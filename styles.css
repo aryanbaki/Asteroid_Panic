@@ -141,12 +141,45 @@ canvas {
   gap: 12px;
   padding: 24px;
   text-align: center;
-  background: rgba(3, 7, 17, 0.91);
+  overflow: hidden;
+  isolation: isolate;
+  background: #071126;
   backdrop-filter: none;
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease;
   animation: overlayIn 260ms ease both;
+}
+
+.overlay::before,
+.overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay::before {
+  z-index: -1;
+  opacity: 0.42;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 23px, rgba(67, 213, 255, 0.24) 24px 26px, transparent 27px 47px),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(255, 209, 102, 0.16) 32px 34px, transparent 35px 63px);
+  background-position: 0 0, 0 0;
+  animation: overlayGrid 12s linear infinite;
+}
+
+.overlay::after {
+  z-index: -1;
+  inset: 10px;
+  border: 2px solid rgba(255, 90, 238, 0.5);
+  box-shadow: inset 0 0 0 2px rgba(119, 239, 143, 0.28), 0 0 22px rgba(67, 213, 255, 0.22);
+  animation: overlayFrame 2.8s steps(2, end) infinite;
+}
+
+.overlay > * {
+  position: relative;
+  z-index: 1;
 }
 
 .overlay[data-screen="victory"] {
@@ -166,6 +199,8 @@ canvas {
   font-size: 30px;
   letter-spacing: 0;
   animation: titleFloat 4.5s ease-in-out infinite;
+  color: #f5f7fb;
+  text-shadow: 3px 3px 0 #ff5aee, -2px -2px 0 #43d5ff;
 }
 
 .overlay p {
@@ -190,6 +225,14 @@ canvas {
   background: #101d32;
   text-align: left;
   animation: cardIn 320ms ease both;
+}
+
+.how-to div:nth-child(2n) {
+  border-color: #b083ff;
+}
+
+.how-to div:nth-child(3n) {
+  border-color: #ffd166;
 }
 
 .how-to strong,
@@ -536,6 +579,19 @@ kbd {
   }
   50% {
     box-shadow: 0 13px 34px rgba(67, 213, 255, 0.28);
+  }
+}
+
+@keyframes overlayGrid {
+  to {
+    background-position: 48px 32px, -32px 48px;
+  }
+}
+
+@keyframes overlayFrame {
+  50% {
+    border-color: rgba(255, 209, 102, 0.7);
+    box-shadow: inset 0 0 0 2px rgba(67, 213, 255, 0.34), 0 0 28px rgba(255, 90, 238, 0.25);
   }
 }
 

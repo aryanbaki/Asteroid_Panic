@@ -34,6 +34,7 @@ https://aryanbaki.github.io/Asteroid_Panic/
 - Hold `Space` to fire. Bullets travel in a straight line from the ship's current heading.
 - On touch screens, drag on the arena to steer, thrust, and fire in the drag direction.
 - Use `Pause` or press `P` to pause.
+- Fly inside the cyan repair field around the planet to restore health and shield for free.
 
 ## Game Loop
 

@@ -151,7 +151,7 @@ const PLANETS = [
     asteroid: "#9aa7bd",
     enemies: ["drone", "asteroid"],
     mechanic: "Flight, aiming, and Guardian turret",
-    difficulty: { waveTargets: [3, 4, 5], maxAlive: 2, spawnInterval: 1.65, enemyHealth: 0.55, enemySpeed: 0.58, bossHealth: 0.55, playerHealth: 40, playerShield: 55, guardianTurret: true, turretDamage: 1.25, turretRate: 0.72 },
+    difficulty: { waveTargets: [2, 3, 4], maxAlive: 2, spawnInterval: 1.9, enemyHealth: 0.4, enemySpeed: 0.45, bossHealth: 0.34, playerHealth: 90, playerShield: 100, guardianTurret: true, turretDamage: 1.45, turretRate: 0.6 },
     reward: { coins: 90, crystals: 18, title: "Cadet Defender" },
     boss: "warden",
   },
@@ -162,7 +162,7 @@ const PLANETS = [
     asteroid: "#b08968",
     enemies: ["drone", "asteroid", "splitter"],
     mechanic: "Splitting enemies",
-    difficulty: { waveTargets: [5, 7, 9], maxAlive: 3, spawnInterval: 1.28, enemyHealth: 0.74, enemySpeed: 0.76, bossHealth: 0.72, playerHealth: 24, playerShield: 42 },
+    difficulty: { waveTargets: [4, 5, 6], maxAlive: 2, spawnInterval: 1.55, enemyHealth: 0.52, enemySpeed: 0.58, bossHealth: 0.46, playerHealth: 70, playerShield: 85 },
     reward: { coins: 130, crystals: 26, ship: "Comet" },
     boss: "crusher",
   },
@@ -173,7 +173,7 @@ const PLANETS = [
     asteroid: "#9ad8e8",
     enemies: ["scout", "shooter", "tank"],
     mechanic: "Faster enemies",
-    difficulty: { maxAlive: 5, spawnInterval: 0.92, enemyHealth: 0.94, enemySpeed: 0.92, bossHealth: 0.92 },
+    difficulty: { maxAlive: 3, spawnInterval: 1.28, enemyHealth: 0.6, enemySpeed: 0.64, bossHealth: 0.52 },
     reward: { coins: 170, crystals: 34, color: "Ice Blue" },
     boss: "frostmaw",
   },
@@ -184,7 +184,7 @@ const PLANETS = [
     asteroid: "#7f6db5",
     enemies: ["scout", "laserDrone", "mineLayer"],
     mechanic: "Area denial mines",
-    difficulty: { maxAlive: 7, spawnInterval: 0.76 },
+    difficulty: { maxAlive: 4, spawnInterval: 1.1, enemyHealth: 0.68, enemySpeed: 0.7, bossHealth: 0.58 },
     reward: { coins: 220, crystals: 44, weapon: "Ricochet" },
     boss: "broodmind",
   },
@@ -195,7 +195,7 @@ const PLANETS = [
     asteroid: "#d45a35",
     enemies: ["tank", "kamikaze", "sniper"],
     mechanic: "Chargers and snipers",
-    difficulty: { maxAlive: 8, spawnInterval: 0.68, enemyHealth: 1.08, enemySpeed: 1.04, bossHealth: 1.06 },
+    difficulty: { maxAlive: 4, spawnInterval: 0.98, enemyHealth: 0.76, enemySpeed: 0.76, bossHealth: 0.64 },
     reward: { coins: 280, crystals: 56, trail: "Ember" },
     boss: "magmaCore",
   },
@@ -206,7 +206,7 @@ const PLANETS = [
     asteroid: "#8d8aa9",
     enemies: ["shooter", "shieldCarrier", "teleporter"],
     mechanic: "Shielded formations",
-    difficulty: { maxAlive: 9, spawnInterval: 0.6, enemyHealth: 1.15, enemySpeed: 1.08, bossHealth: 1.12 },
+    difficulty: { maxAlive: 5, spawnInterval: 0.88, enemyHealth: 0.82, enemySpeed: 0.8, bossHealth: 0.7 },
     reward: { coins: 350, crystals: 70, badge: "Void Runner" },
     boss: "voidRay",
   },
@@ -217,7 +217,7 @@ const PLANETS = [
     asteroid: "#de7fff",
     enemies: ["laserDrone", "mineLayer", "teleporter", "splitter"],
     mechanic: "Teleport ambushes",
-    difficulty: { maxAlive: 10, spawnInterval: 0.52, enemyHealth: 1.22, enemySpeed: 1.12, bossHealth: 1.18 },
+    difficulty: { maxAlive: 5, spawnInterval: 0.8, enemyHealth: 0.88, enemySpeed: 0.84, bossHealth: 0.76 },
     reward: { coins: 430, crystals: 86, title: "Nebula Ace" },
     boss: "prismHeart",
   },
@@ -228,7 +228,7 @@ const PLANETS = [
     asteroid: "#5bd68f",
     enemies: ["scout", "tank", "sniper", "shieldCarrier", "teleporter"],
     mechanic: "Combined threats",
-    difficulty: { maxAlive: 11, spawnInterval: 0.45, enemyHealth: 1.3, enemySpeed: 1.16, bossHealth: 1.26 },
+    difficulty: { maxAlive: 6, spawnInterval: 0.72, enemyHealth: 0.94, enemySpeed: 0.88, bossHealth: 0.82 },
     reward: { coins: 540, crystals: 110, ship: "Nova" },
     boss: "overlord",
   },
@@ -272,13 +272,18 @@ const SHIPS = [
 ];
 
 const DEFAULT_DIFFICULTY = {
-  maxAlive: 6,
-  spawnInterval: 0.86,
-  enemyHealth: 1,
-  enemySpeed: 1,
-  bossHealth: 1,
-  playerHealth: 0,
-  playerShield: 25,
+  maxAlive: 4,
+  spawnInterval: 1.05,
+  enemyHealth: 0.7,
+  enemySpeed: 0.72,
+  enemySize: 0.72,
+  enemyBulletSpeed: 0.7,
+  bossHealth: 0.6,
+  bossSize: 0.72,
+  bossVolley: 0.55,
+  bossProjectileSpeed: 0.62,
+  playerHealth: 60,
+  playerShield: 75,
   guardianTurret: false,
   turretDamage: 0.7,
   turretRate: 1.25,
@@ -470,7 +475,7 @@ function makePlayer(width, height, ship, difficulty) {
     vy: 0,
     angle: -Math.PI / 2,
     recoil: 0,
-    radius: 13,
+    radius: 10,
     speed: 205 * ship.speed,
     accel: 1200,
     friction: 7.4,
@@ -483,8 +488,8 @@ function makePlayer(width, height, ship, difficulty) {
     level: 1,
     xp: 0,
     xpNext: 9,
-    damage: 20,
-    fireRate: 2.9 * ship.fire,
+    damage: 26,
+    fireRate: 3.35 * ship.fire,
     fireCooldown: 0,
     bullets: 1,
     crit: 0.06,
@@ -503,6 +508,7 @@ function makePlayer(width, height, ship, difficulty) {
     color: ship.color,
     trail: ship.trail,
     sprite: PIXEL_FRAMES[ship.sprite] || PIXEL_FRAMES.player,
+    homeRepair: false,
   };
 }
 
@@ -649,7 +655,7 @@ function renderHelp() {
     <div class="how-to">
       <div><strong>Controls</strong><span>W or Up thrusts, A/D or Left/Right turns, and S or Down reverses. Hold Space to fire in your current direction. Drag on mobile to steer, thrust, and fire. Press P to pause.</span></div>
       <div><strong>Rewards</strong><span>Green crystals level you up. Gold coins and boss chests feed permanent progression.</span></div>
-      <div><strong>Survival</strong><span>Enemies never spawn directly on you. Shield absorbs hits, but reckless collisions still hurt.</span></div>
+      <div><strong>Survival</strong><span>Fly close to the planet's cyan repair field to restore health and shield. Enemies never spawn directly on you.</span></div>
     </div>
     <div class="menu-actions">${button("Got It", returnAction)}</div>`);
 }
@@ -813,10 +819,11 @@ function spawnBoss() {
     ...data,
     type: "boss",
     x: canvas.width / 2,
-    y: -90,
+    y: -data.radius * state.difficulty.bossSize - 18,
     targetY: Math.max(48, canvas.height * 0.22),
     hp: data.hp * hpScale,
     maxHp: data.hp * hpScale,
+    radius: data.radius * state.difficulty.bossSize,
     phase: 1,
     cooldown: 1.2,
     spawnTime: 2.1,
@@ -861,6 +868,7 @@ function spawnEnemy(type, x, y) {
     hp: cfg.hp * scale * state.difficulty.enemyHealth,
     maxHp: cfg.hp * scale * state.difficulty.enemyHealth,
     speed: cfg.speed * (1 + state.planetIndex * 0.035) * state.difficulty.enemySpeed,
+    radius: cfg.radius * state.difficulty.enemySize,
     cooldown: rand(0.4, 1.8),
     charge: rand(0.6, 1.5),
     angle: rand(0, TAU),
@@ -901,6 +909,7 @@ function updatePlayer(dt) {
   p.recoil = Math.max(0, p.recoil - dt * 8);
   p.shieldPulse = Math.max(0, p.shieldPulse - dt * 3);
   if (p.shield < p.shieldMax) p.shield = Math.min(p.shieldMax, p.shield + dt * 1.6);
+  updateHomeRepair(p, dt);
 
   if (speed > 15) exhaust(p.x - Math.cos(p.angle) * 16, p.y - Math.sin(p.angle) * 16, p.trail);
 
@@ -913,6 +922,15 @@ function updatePlayer(dt) {
   updateCompanions(dt);
   updateTurret(dt);
   updateEmp(dt);
+}
+
+function updateHomeRepair(p, dt) {
+  const repairRadius = 112;
+  p.homeRepair = Math.hypot(p.x - canvas.width / 2, p.y - canvas.height / 2) < repairRadius;
+  if (!p.homeRepair) return;
+  p.health = Math.min(p.maxHealth, p.health + dt * 20);
+  p.shield = Math.min(p.shieldMax, p.shield + dt * 18);
+  if (!settings.lowFx && Math.random() < dt * 12) spark(p.x + rand(-8, 8), p.y + rand(-8, 8), "#77ef8f", 1);
 }
 
 function lerpAngle(a, b, t) {
@@ -1072,7 +1090,7 @@ function updateEnemies(dt) {
     if (enemy.type === "shieldCarrier") shieldNearbyEnemies(enemy);
 
     if (enemy.spawnGrace <= 0 && dist(p, enemy) < p.radius + enemy.radius && p.invuln <= 0) {
-      damagePlayer(enemy.type === "kamikaze" ? 28 : 12);
+      damagePlayer(enemy.type === "kamikaze" ? 18 : 7);
       enemy.hp -= enemy.type === "kamikaze" ? 999 : 18;
       state.camera.shake = Math.max(state.camera.shake, 5);
     }
@@ -1089,27 +1107,28 @@ function updateBoss(boss, dt) {
   }
   boss.attackTell = boss.cooldown < 0.38 ? clamp(1 - boss.cooldown / 0.38, 0, 1) : 0;
   if (boss.attackTell > 0.75 && Math.random() < dt * 18) spark(boss.x + rand(-boss.radius, boss.radius), boss.y + rand(-boss.radius * 0.5, boss.radius * 0.5), boss.color, 1);
-  boss.x += Math.sin(state.time * 0.9) * 36 * dt;
+  boss.x += Math.sin(state.time * 0.9) * 24 * dt;
   boss.cooldown -= dt;
   if (boss.cooldown > 0) return;
   const attack = boss.phase === 1 ? 0 : Math.floor(rand(0, boss.phase + 1));
   if (attack === 0) {
-    for (let i = 0; i < 7 + boss.phase * 2; i += 1) shootEnemy(boss, (i / (7 + boss.phase * 2)) * TAU + state.time * 0.4, 170 + state.planetIndex * 12);
+    const count = Math.max(3, Math.round((5 + boss.phase * 2) * state.difficulty.bossVolley));
+    for (let i = 0; i < count; i += 1) shootEnemy(boss, (i / count) * TAU + state.time * 0.4, (150 + state.planetIndex * 8) * state.difficulty.bossProjectileSpeed);
   } else if (attack === 1) {
-    for (let i = 0; i < boss.phase + 1; i += 1) spawnEnemy(choose(state.planet.enemies), boss.x + rand(-55, 55), boss.y + rand(10, 65));
+    for (let i = 0; i < Math.max(1, boss.phase - 1); i += 1) spawnEnemy(choose(state.planet.enemies), boss.x + rand(-42, 42), boss.y + rand(10, 52));
   } else {
-    state.mines.push({ x: boss.x + rand(-120, 120), y: boss.y + rand(70, 180), radius: 15, life: 5, pulse: 0 });
+    state.mines.push({ x: boss.x + rand(-110, 110), y: boss.y + rand(70, 160), radius: 10, life: 4, pulse: 0 });
   }
-  boss.cooldown = Math.max(0.75, 2 - boss.phase * 0.32);
+  boss.cooldown = Math.max(1.35, 2.8 - boss.phase * 0.28);
 }
 
 function shootEnemy(enemy, angle, speed) {
   state.enemyBullets.push({
     x: enemy.x + Math.cos(angle) * enemy.radius,
     y: enemy.y + Math.sin(angle) * enemy.radius,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    radius: enemy.type === "boss" ? 6 : 5,
+    vx: Math.cos(angle) * speed * state.difficulty.enemyBulletSpeed,
+    vy: Math.sin(angle) * speed * state.difficulty.enemyBulletSpeed,
+    radius: enemy.type === "boss" ? 4 : 3,
     life: 4,
     color: enemy.color,
   });
@@ -1169,7 +1188,7 @@ function updateBullets(dt) {
     }
     if (dist(bullet, state.player) < bullet.radius + state.player.radius) {
       bullet.life = 0;
-      damagePlayer(10 + state.planetIndex);
+      damagePlayer(6 + Math.floor(state.planetIndex * 0.6));
     }
   }
   state.bullets = state.bullets.filter((bullet) => bullet.life > 0);
@@ -1182,7 +1201,7 @@ function updateMines(dt) {
     mine.pulse += dt;
     if (dist(mine, state.player) < mine.radius + state.player.radius + 10) {
       mine.life = 0;
-      damagePlayer(18);
+      damagePlayer(11);
       explode(mine.x, mine.y, "#ff8b45", 18);
     }
   }
@@ -1510,6 +1529,7 @@ function draw() {
   ctx.save();
   ctx.translate(rand(-shake, shake), rand(-shake, shake));
   drawPlanet(w, h);
+  drawRepairField();
   drawGuardianTurret();
   for (const pickup of state.pickups) drawPickup(pickup);
   for (const mine of state.mines) drawMine(mine);
@@ -1618,31 +1638,40 @@ function drawGuardianTurret() {
   ctx.restore();
 }
 
+function drawRepairField() {
+  const x = canvas.width / 2;
+  const y = canvas.height / 2;
+  const r = 110;
+  ctx.save();
+  ctx.globalAlpha = 0.4 + Math.sin(state.time * 3) * 0.12;
+  ctx.fillStyle = "#77ef8f";
+  for (let i = 0; i < 16; i += 1) {
+    const angle = (i / 16) * TAU + state.time * 0.15;
+    ctx.fillRect(Math.round(x + Math.cos(angle) * r) - 2, Math.round(y + Math.sin(angle) * r) - 2, 4, 4);
+  }
+  ctx.restore();
+}
+
 function drawPlayer() {
   const p = state.player;
   const speed = Math.hypot(p.vx, p.vy);
   const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
-  const drewShip = assetManager.drawSprite(ctx, "pixel.ships", p.sprite, p.x, p.y + idleBob, 5 + p.recoil * 0.25, {
-    rotation: p.angle + Math.PI / 2,
-    shadowColor: p.color,
-    shadowBlur: 6,
-    alpha: p.invuln > 0 ? 0.82 : 1,
-  });
-  if (!drewShip) {
   ctx.save();
   ctx.translate(p.x, p.y + idleBob);
   ctx.rotate(p.angle);
   ctx.imageSmoothingEnabled = false;
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 7;
   ctx.shadowColor = p.color;
   ctx.fillStyle = p.invuln > 0 ? "#ffffff" : p.color;
   ctx.beginPath();
-  ctx.moveTo(20 - p.recoil * 4, 0);
+  ctx.moveTo(19 - p.recoil * 3, 0);
   ctx.lineTo(-13, -12);
-  ctx.lineTo(-7, 0);
+  ctx.lineTo(-8, 0);
   ctx.lineTo(-13, 12);
   ctx.closePath();
   ctx.fill();
+  ctx.fillStyle = "#f5f7fb";
+  ctx.fillRect(0, -3, 8, 6);
   ctx.shadowBlur = 0;
   ctx.fillStyle = p.trail;
   ctx.beginPath();
@@ -1651,7 +1680,6 @@ function drawPlayer() {
   ctx.lineTo(-13, 6);
   ctx.fill();
   ctx.restore();
-  }
 
   if (p.shield > 0) {
     ctx.save();
