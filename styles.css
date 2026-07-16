@@ -12,6 +12,12 @@
   --red: #ff5a6b;
 }
 
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("Assets/Art/Fonts/PressStart2P-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -23,25 +29,29 @@ body {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 18% 10%, rgba(67, 213, 255, 0.14), transparent 24rem),
-    radial-gradient(circle at 82% 76%, rgba(255, 209, 102, 0.1), transparent 26rem),
-    var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(90deg, rgba(67, 213, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255, 209, 102, 0.04) 1px, transparent 1px);
+  background-size: 8px 8px;
   color: var(--text);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.65;
 }
 
 button {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #1a2234;
+  border: 2px solid #17293f;
+  border-radius: 0;
+  background: #1c3c63;
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  min-height: 42px;
-  padding: 0 18px;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 10px;
+  line-height: 1.45;
+  box-shadow: 4px 4px 0 #05080e;
   transform: translateY(0) scale(1);
   transition:
     transform 130ms ease,
@@ -51,8 +61,10 @@ button {
 }
 
 button:hover {
-  border-color: var(--cyan);
-  transform: translateY(-1px) scale(1.01);
+  border-color: var(--yellow);
+  background: #26558a;
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 #05080e;
 }
 
 .game-shell {
@@ -62,7 +74,7 @@ button:hover {
   padding: 14px 0 18px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: 10px;
+  gap: 8px;
 }
 
 .hud {
@@ -74,46 +86,50 @@ button:hover {
 .hud > div,
 .meters,
 .controls {
-  background: rgba(16, 21, 34, 0.9);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: #0c1728;
+  border: 2px solid #304b6b;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #05080e;
 }
 
 .hud > div {
   min-width: 0;
-  padding: 10px 12px;
+  padding: 8px 9px;
 }
 
 .label,
 .meter span,
 .keys span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 8px;
   text-transform: uppercase;
 }
 
 .hud strong {
   display: block;
-  font-size: clamp(1.1rem, 2vw, 1.7rem);
-  line-height: 1.1;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .arena-wrap {
   position: relative;
   min-height: 0;
-  border: 1px solid #33405a;
-  border-radius: 8px;
+  aspect-ratio: 16 / 10;
+  border: 3px solid #5182b9;
+  border-radius: 0;
   overflow: hidden;
-  background: #080b12;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  background: #030711;
+  box-shadow: 6px 6px 0 #05080e;
 }
 
 canvas {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 390px;
+  min-height: 0;
   touch-action: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .overlay {
@@ -122,11 +138,11 @@ canvas {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 14px;
+  gap: 12px;
   padding: 24px;
   text-align: center;
-  background: rgba(6, 7, 11, 0.72);
-  backdrop-filter: blur(5px);
+  background: rgba(3, 7, 17, 0.91);
+  backdrop-filter: none;
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease;
@@ -134,15 +150,11 @@ canvas {
 }
 
 .overlay[data-screen="victory"] {
-  background:
-    radial-gradient(circle at 50% 34%, rgba(119, 239, 143, 0.2), transparent 18rem),
-    rgba(6, 7, 11, 0.7);
+  background: rgba(9, 38, 35, 0.94);
 }
 
 .overlay[data-screen="defeat"] {
-  background:
-    radial-gradient(circle at 50% 36%, rgba(255, 90, 107, 0.24), transparent 16rem),
-    rgba(6, 7, 11, 0.82);
+  background: rgba(50, 11, 20, 0.94);
 }
 
 .overlay.hidden {
@@ -151,15 +163,16 @@ canvas {
 
 .overlay h1 {
   margin: 0;
-  font-size: clamp(2rem, 8vw, 5.2rem);
+  font-size: 30px;
   letter-spacing: 0;
   animation: titleFloat 4.5s ease-in-out infinite;
 }
 
 .overlay p {
   margin: 0;
-  max-width: 520px;
+  max-width: 620px;
   color: var(--muted);
+  font-size: 10px;
 }
 
 .how-to {
@@ -171,10 +184,10 @@ canvas {
 
 .how-to div {
   min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(67, 213, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(16, 21, 34, 0.72);
+  padding: 10px;
+  border: 2px solid #315477;
+  border-radius: 0;
+  background: #101d32;
   text-align: left;
   animation: cardIn 320ms ease both;
 }
@@ -191,16 +204,16 @@ canvas {
 
 .how-to span {
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 9px;
   line-height: 1.35;
 }
 
 .overlay button {
-  background: linear-gradient(180deg, #39d0ff, #1688ce);
-  border: 0;
-  color: #04121c;
+  background: #2dcae5;
+  border: 2px solid #b9f8ff;
+  color: #06101f;
   font-weight: 800;
-  box-shadow: 0 10px 26px rgba(67, 213, 255, 0.18);
+  box-shadow: 4px 4px 0 #09213a;
   animation: buttonPulse 2.8s ease-in-out infinite;
 }
 
@@ -224,9 +237,9 @@ canvas {
 
 .menu-actions button.secondary,
 .overlay .secondary {
-  background: #202a3e;
+  background: #283b5b;
   color: var(--text);
-  border: 1px solid #3e4e6d;
+  border: 2px solid #58769d;
   box-shadow: none;
 }
 
@@ -239,10 +252,10 @@ canvas {
 
 .screen-card {
   min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(67, 213, 255, 0.22);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(32, 42, 62, 0.92), rgba(17, 23, 36, 0.92));
+  padding: 11px;
+  border: 2px solid #315477;
+  border-radius: 0;
+  background: #101d32;
   text-align: left;
   transform-origin: center;
   animation: cardIn 320ms ease both;
@@ -256,7 +269,7 @@ canvas {
 .screen-card span {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 9px;
   line-height: 1.35;
 }
 
@@ -292,7 +305,7 @@ canvas {
 .celebration i {
   width: 10px;
   height: 18px;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--green);
   top: -28px;
   animation: confettiFall 2.4s ease-in infinite;
@@ -336,7 +349,7 @@ canvas {
   width: 220px;
   height: 2px;
   left: -240px;
-  background: linear-gradient(90deg, transparent, rgba(255, 90, 107, 0.8), transparent);
+  background: var(--red);
   animation: defeatSlash 1.8s ease-in-out infinite;
 }
 
@@ -363,9 +376,9 @@ canvas {
 .upgrade-list button {
   width: 100%;
   min-height: 50px;
-  background: #202a3e;
+  background: #1d3555;
   color: var(--text);
-  border: 1px solid #3e4e6d;
+  border: 2px solid #58769d;
   text-align: left;
   display: grid;
   align-content: center;
@@ -379,13 +392,13 @@ canvas {
 
 .upgrade-list button span {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 9px;
   line-height: 1.25;
 }
 
 .upgrade-list button:hover {
   border-color: var(--cyan);
-  background: #26334c;
+  background: #26558a;
 }
 
 .meters {
@@ -403,7 +416,8 @@ canvas {
   height: 12px;
   margin-top: 5px;
   overflow: hidden;
-  border-radius: 999px;
+  border: 2px solid #263b56;
+  border-radius: 0;
   background: #252d3d;
 }
 
@@ -411,17 +425,17 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--green), #c7ff6b);
+  border-radius: 0;
+  background: var(--green);
   transition: width 180ms ease;
 }
 
 .bar.xp i {
-  background: linear-gradient(90deg, var(--cyan), #7f7cff);
+  background: var(--cyan);
 }
 
 .bar.wave i {
-  background: linear-gradient(90deg, var(--yellow), var(--red));
+  background: var(--yellow);
 }
 
 .controls {
@@ -442,10 +456,10 @@ canvas {
 kbd {
   border: 1px solid #3c4861;
   border-bottom-width: 3px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--panel-2);
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 8px;
   padding: 5px 8px;
 }
 
@@ -456,8 +470,8 @@ kbd {
   width: 96px;
   height: 96px;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 50%;
-  background: rgba(16, 21, 34, 0.55);
+  border-radius: 0;
+  background: rgba(16, 21, 34, 0.8);
   display: none;
   place-items: center;
   pointer-events: none;
@@ -466,7 +480,7 @@ kbd {
 .touch-stick span {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: 0;
   background: rgba(67, 213, 255, 0.85);
   transition: transform 90ms ease;
 }
@@ -563,7 +577,18 @@ kbd {
   }
 
   canvas {
-    min-height: 440px;
+    min-height: 0;
+  }
+
+  .overlay h1 {
+    font-size: 22px;
+  }
+
+  .overlay p,
+  .how-to span,
+  .screen-card span,
+  .upgrade-list button span {
+    font-size: 8px;
   }
 
   .meters {

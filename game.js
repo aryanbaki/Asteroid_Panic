@@ -19,6 +19,8 @@ const els = {
 };
 
 const TAU = Math.PI * 2;
+const WORLD_WIDTH = 384;
+const WORLD_HEIGHT = 240;
 const SAVE_KEY = "asteroid-panic-save-v2";
 const SETTINGS_KEY = "asteroid-panic-settings-v2";
 const ASSET_MANIFEST_PATH = "Assets/Data/AssetManifest.json";
@@ -99,7 +101,39 @@ class AssetManager {
     ctx.restore();
     return true;
   }
+
+  drawSprite(ctx, id, frame, x, y, scale, options = {}) {
+    const image = this.getImage(id);
+    if (!image) return false;
+    const width = frame.w * scale;
+    const height = frame.h * scale;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = options.alpha ?? 1;
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(options.rotation || 0);
+    if (options.shadowColor) {
+      ctx.shadowColor = options.shadowColor;
+      ctx.shadowBlur = options.shadowBlur ?? 0;
+    }
+    ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    return true;
+  }
 }
+
+// Frames from the licensed 8x8 Space Shooter pack. Keeping these coordinates
+// centralized makes replacing or expanding the art pack straightforward.
+const PIXEL_FRAMES = {
+  player: { x: 40, y: 0, w: 8, h: 8 },
+  scout: { x: 48, y: 8, w: 8, h: 8 },
+  drone: { x: 56, y: 8, w: 8, h: 8 },
+  tank: { x: 40, y: 24, w: 8, h: 8 },
+  boss: { x: 32, y: 48, w: 24, h: 24 },
+  coin: { x: 0, y: 0, w: 8, h: 8 },
+  crystal: { x: 40, y: 40, w: 8, h: 8 },
+  shield: { x: 0, y: 32, w: 8, h: 16 },
+};
 
 const PLANETS = [
   {
@@ -108,7 +142,7 @@ const PLANETS = [
     colors: ["#07111f", "#1d3c6f", "#43d5ff"],
     asteroid: "#9aa7bd",
     enemies: ["drone", "asteroid"],
-    mechanic: "Basic movement and auto-fire",
+    mechanic: "Basic flight and manual fire",
     reward: { coins: 90, crystals: 18, title: "Cadet Defender" },
     boss: "warden",
   },
@@ -342,16 +376,17 @@ function vibrate(pattern) {
 }
 
 function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Draw at a fixed low resolution and let CSS enlarge it with hard edges.
+  // This gives every in-game object the same crisp pixel-art treatment.
+  canvas.width = WORLD_WIDTH;
+  canvas.height = WORLD_HEIGHT;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
 }
 
 function makeState() {
-  const width = canvas.clientWidth || 960;
-  const height = canvas.clientHeight || 600;
+  const width = canvas.width || WORLD_WIDTH;
+  const height = canvas.height || WORLD_HEIGHT;
   const planetIndex = clamp(save.selectedPlanet, 0, PLANETS.length - 1);
   const ship = SHIPS[save.selectedShip] || SHIPS[0];
   return {
@@ -393,10 +428,11 @@ function makePlayer(width, height, ship) {
     vy: 0,
     angle: -Math.PI / 2,
     recoil: 0,
-    radius: 16,
-    speed: 245 * ship.speed,
-    accel: 1620,
-    friction: 8.5,
+    radius: 13,
+    speed: 175 * ship.speed,
+    accel: 1080,
+    friction: 7.4,
+    turnSpeed: 4.9,
     health: 100,
     maxHealth: 100,
     shield: 25,
@@ -481,10 +517,10 @@ function renderMenu() {
   const daily = getDailyBonusText();
   setOverlay(`
     <h1>Asteroid Panic</h1>
-    <p>Protect Earth across eight planets. Move fast, auto-shoot, collect rewards, and stack upgrades.</p>
+    <p>Turn, thrust, and fire through the invasion. Every shot travels exactly where your ship points.</p>
     <div class="how-to">
-      <div><strong>Move</strong><span>WASD, arrow keys, or drag on mobile.</span></div>
-      <div><strong>Fight</strong><span>Your ship fires automatically at the nearest enemy.</span></div>
+      <div><strong>Pilot</strong><span>W or Up thrusts. A/D or Left/Right turns. S or Down reverses.</span></div>
+      <div><strong>Fire</strong><span>Hold Space to fire from the ship's nose. On phone, drag to steer, thrust, and fire.</span></div>
       <div><strong>Grow</strong><span>Collect crystals, beat bosses, unlock ships, trails, badges, and titles.</span></div>
     </div>
     <div class="menu-actions">
@@ -566,7 +602,7 @@ function renderHelp() {
     <h1>How to Play</h1>
     <p>Protect Earth, clear three waves, beat the planet boss, then unlock the next planet.</p>
     <div class="how-to">
-      <div><strong>Controls</strong><span>WASD / arrows / drag to move. Shooting is automatic. Press P to pause.</span></div>
+      <div><strong>Controls</strong><span>W or Up thrusts, A/D or Left/Right turns, and S or Down reverses. Hold Space to fire in your current direction. Drag on mobile to steer, thrust, and fire. Press P to pause.</span></div>
       <div><strong>Rewards</strong><span>Green crystals level you up. Gold coins and boss chests feed permanent progression.</span></div>
       <div><strong>Survival</strong><span>Enemies never spawn directly on you. Shield absorbs hits, but reckless collisions still hurt.</span></div>
     </div>
@@ -684,19 +720,17 @@ function takeUpgrade(index) {
   requestAnimationFrame(loop);
 }
 
-function getMoveVector() {
-  let x = 0;
-  let y = 0;
-  if (keys.has("a") || keys.has("arrowleft")) x -= 1;
-  if (keys.has("d") || keys.has("arrowright")) x += 1;
-  if (keys.has("w") || keys.has("arrowup")) y -= 1;
-  if (keys.has("s") || keys.has("arrowdown")) y += 1;
-  if (pointerActive) {
-    x += pointerVector.x;
-    y += pointerVector.y;
-  }
-  const length = Math.hypot(x, y);
-  return length > 0 ? { x: x / length, y: y / length, moving: true } : { x: 0, y: 0, moving: false };
+function getPilotInput() {
+  const touchStrength = Math.min(1, Math.hypot(pointerVector.x, pointerVector.y));
+  const touchAngle = touchStrength > 0.08 ? Math.atan2(pointerVector.y, pointerVector.x) : null;
+  const turn = (keys.has("a") || keys.has("arrowleft") ? -1 : 0) + (keys.has("d") || keys.has("arrowright") ? 1 : 0);
+  const thrust = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 0.55 : 0);
+  return {
+    turn,
+    thrust: pointerActive ? touchStrength : thrust,
+    touchAngle,
+    firing: keys.has(" ") || keys.has("space") || pointerActive,
+  };
 }
 
 function spawnWave(dt) {
@@ -733,9 +767,9 @@ function spawnBoss() {
   state.boss = {
     ...data,
     type: "boss",
-    x: canvas.clientWidth / 2,
+    x: canvas.width / 2,
     y: -90,
-    targetY: Math.max(100, canvas.clientHeight * 0.22),
+    targetY: Math.max(48, canvas.height * 0.22),
     hp: data.hp * hpScale,
     maxHp: data.hp * hpScale,
     phase: 1,
@@ -752,20 +786,20 @@ function spawnBoss() {
   state.camera.flash = 0.65;
   state.camera.shake = 12;
   startMusic("boss");
-  spawnText(canvas.clientWidth / 2, 96, `${data.name} Appears`, data.color);
+  spawnText(canvas.width / 2, 38, `${data.name} Appears`, data.color);
   playTone(90, 0.55, "sawtooth", 0.09, -35);
   vibrate([50, 40, 80]);
 }
 
 function spawnAtEdge(type) {
-  const margin = 55;
+  const margin = 32;
   const attempts = 16;
   for (let i = 0; i < attempts; i += 1) {
     const side = Math.floor(Math.random() * 4);
-    const x = side === 0 ? -margin : side === 1 ? canvas.clientWidth + margin : rand(0, canvas.clientWidth);
-    const y = side === 2 ? -margin : side === 3 ? canvas.clientHeight + margin : rand(0, canvas.clientHeight);
-    if (dist({ x, y }, state.player) < 230) continue;
-    if (state.enemies.some((enemy) => Math.hypot(enemy.x - x, enemy.y - y) < enemy.radius + 50)) continue;
+    const x = side === 0 ? -margin : side === 1 ? canvas.width + margin : rand(0, canvas.width);
+    const y = side === 2 ? -margin : side === 3 ? canvas.height + margin : rand(0, canvas.height);
+    if (dist({ x, y }, state.player) < 118) continue;
+    if (state.enemies.some((enemy) => Math.hypot(enemy.x - x, enemy.y - y) < enemy.radius + 28)) continue;
     spawnEnemy(type, x, y);
     return;
   }
@@ -797,11 +831,15 @@ function spawnEnemy(type, x, y) {
 
 function updatePlayer(dt) {
   const p = state.player;
-  const move = getMoveVector();
-  const targetSpeed = p.speed * (p.dash > 0 && move.moving && keys.has("shift") ? 1.45 : 1);
-  p.vx += move.x * p.accel * dt;
-  p.vy += move.y * p.accel * dt;
-  if (!move.moving) {
+  const input = getPilotInput();
+  const isThrusting = Math.abs(input.thrust) > 0.05;
+  const targetSpeed = p.speed * (p.dash > 0 && isThrusting && keys.has("shift") ? 1.45 : 1);
+  if (input.touchAngle !== null) p.angle = lerpAngle(p.angle, input.touchAngle, clamp(10 * dt, 0, 1));
+  else p.angle += input.turn * p.turnSpeed * dt;
+  const thrust = input.thrust * p.accel * dt;
+  p.vx += Math.cos(p.angle) * thrust;
+  p.vy += Math.sin(p.angle) * thrust;
+  if (!isThrusting) {
     p.vx = lerp(p.vx, 0, clamp(p.friction * dt, 0, 1));
     p.vy = lerp(p.vy, 0, clamp(p.friction * dt, 0, 1));
   }
@@ -812,9 +850,8 @@ function updatePlayer(dt) {
   }
   p.x += p.vx * dt;
   p.y += p.vy * dt;
-  p.x = clamp(p.x, p.radius, canvas.clientWidth - p.radius);
-  p.y = clamp(p.y, p.radius, canvas.clientHeight - p.radius);
-  if (speed > 5) p.angle = lerpAngle(p.angle, Math.atan2(p.vy, p.vx), clamp(12 * dt, 0, 1));
+  p.x = clamp(p.x, p.radius, canvas.width - p.radius);
+  p.y = clamp(p.y, p.radius, canvas.height - p.radius);
   p.invuln = Math.max(0, p.invuln - dt);
   p.recoil = Math.max(0, p.recoil - dt * 8);
   p.shieldPulse = Math.max(0, p.shieldPulse - dt * 3);
@@ -823,8 +860,8 @@ function updatePlayer(dt) {
   if (speed > 15) exhaust(p.x - Math.cos(p.angle) * 16, p.y - Math.sin(p.angle) * 16, p.trail);
 
   p.fireCooldown -= dt;
-  if (p.fireCooldown <= 0) {
-    fireAtNearestEnemy(p.x, p.y, false);
+  if (input.firing && p.fireCooldown <= 0) {
+    fireForward(p);
     p.fireCooldown = 1 / p.fireRate;
   }
 
@@ -852,6 +889,19 @@ function fireAtNearestEnemy(x, y, fromDrone) {
   playTone(fromDrone ? 440 : 620, 0.045, "triangle", 0.022, 80);
 }
 
+function fireForward(p) {
+  const bullets = p.bullets;
+  const spread = 0.14;
+  const muzzle = p.radius + 6;
+  for (let i = 0; i < bullets; i += 1) {
+    const offset = (i - (bullets - 1) / 2) * spread;
+    const angle = p.angle + offset;
+    spawnBullet(p.x + Math.cos(angle) * muzzle, p.y + Math.sin(angle) * muzzle, angle, 1);
+  }
+  p.recoil = 1;
+  playTone(620, 0.045, "triangle", 0.022, 80);
+}
+
 function spawnBullet(x, y, angle, multiplier) {
   const p = state.player;
   state.bullets.push({
@@ -859,6 +909,7 @@ function spawnBullet(x, y, angle, multiplier) {
     y,
     vx: Math.cos(angle) * 560,
     vy: Math.sin(angle) * 560,
+    angle,
     radius: 5,
     life: 1.25,
     damage: p.damage * multiplier * (Math.random() < p.crit ? 2.2 : 1),
@@ -888,7 +939,7 @@ function updateTurret(dt) {
   if (!p.turrets || !state.enemies.length) return;
   state.turretCooldown -= dt;
   if (state.turretCooldown <= 0) {
-    const earth = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
+  const earth = { x: canvas.width / 2, y: canvas.height / 2 };
     const target = state.enemies.reduce((best, enemy) => (dist(earth, enemy) < dist(earth, best) ? enemy : best));
     const angle = Math.atan2(target.y - earth.y, target.x - earth.x);
     spawnBullet(earth.x, earth.y, angle, 0.7);
@@ -1018,8 +1069,8 @@ function shootEnemy(enemy, angle, speed) {
 
 function safeTeleport(enemy) {
   for (let i = 0; i < 12; i += 1) {
-    const x = rand(45, canvas.clientWidth - 45);
-    const y = rand(45, canvas.clientHeight - 45);
+    const x = rand(26, canvas.width - 26);
+    const y = rand(26, canvas.height - 26);
     if (dist({ x, y }, state.player) > 210) {
       ring(enemy.x, enemy.y, enemy.color, 10);
       enemy.x = x;
@@ -1048,11 +1099,11 @@ function updateBullets(dt) {
         life: 0.16,
       });
     }
-    if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > canvas.clientWidth)) {
+    if (bullet.pierce > 0 && (bullet.x < 0 || bullet.x > canvas.width)) {
       bullet.vx *= -1;
       bullet.pierce -= 1;
     }
-    if (bullet.pierce > 0 && (bullet.y < 0 || bullet.y > canvas.clientHeight)) {
+    if (bullet.pierce > 0 && (bullet.y < 0 || bullet.y > canvas.height)) {
       bullet.vy *= -1;
       bullet.pierce -= 1;
     }
@@ -1163,7 +1214,7 @@ function completePlanet() {
   saveGame();
   state.mode = "victory";
   startMusic("menu");
-  for (let i = 0; i < 48; i += 1) spawnParticle("spark", canvas.clientWidth / 2, canvas.clientHeight / 2, choose(["#77ef8f", "#ffd166", "#43d5ff", "#f5f7fb"]), { speed: rand(80, 360), radius: rand(2, 5), life: rand(0.6, 1.4) });
+  for (let i = 0; i < 48; i += 1) spawnParticle("spark", canvas.width / 2, canvas.height / 2, choose(["#77ef8f", "#ffd166", "#43d5ff", "#f5f7fb"]), { speed: rand(80, 360), radius: rand(2, 5), life: rand(0.6, 1.4) });
   setOverlay(`
     <h1>Planet Cleared</h1>
     <p>${state.planet.name} defended. Reward chest unlocked: ${reward.coins} coins, ${reward.crystals} crystals${reward.ship ? `, ${reward.ship} ship` : ""}.</p>
@@ -1198,8 +1249,8 @@ function dropPickup(x, y, type, count) {
   const maxDrops = Math.min(count, type === "coin" ? 8 : 12);
   for (let i = 0; i < maxDrops; i += 1) {
     state.pickups.push({
-      x: clamp(x + rand(-18, 18), 20, canvas.clientWidth - 20),
-      y: clamp(y + rand(-18, 18), 20, canvas.clientHeight - 20),
+      x: clamp(x + rand(-18, 18), 20, canvas.width - 20),
+      y: clamp(y + rand(-18, 18), 20, canvas.height - 20),
       vx: rand(-40, 40),
       vy: rand(-50, 15),
       radius: type === "coin" ? 5 : 6,
@@ -1341,8 +1392,8 @@ function updateParticles(dt) {
 
 function updateBackground(dt) {
   const bg = state.background;
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const w = canvas.width;
+  const h = canvas.height;
   for (const layer of bg.layers) {
     for (const star of layer) {
       star.y += star.speed * dt;
@@ -1403,8 +1454,8 @@ function updateHud() {
 
 function draw() {
   if (!state) return;
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  const w = canvas.width;
+  const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   drawBackground(w, h);
   const shake = state.camera.shake;
@@ -1509,17 +1560,18 @@ function drawPlayer() {
   const p = state.player;
   const speed = Math.hypot(p.vx, p.vy);
   const idleBob = speed < 8 ? Math.sin(state.time * 3.2) * 2.5 : 0;
-  const drewShip = assetManager.drawImage(ctx, "player.ship", p.x, p.y + idleBob, 46 + p.recoil * 4, {
+  const drewShip = assetManager.drawSprite(ctx, "pixel.ships", PIXEL_FRAMES.player, p.x, p.y + idleBob, 5 + p.recoil * 0.25, {
     rotation: p.angle + Math.PI / 2,
     shadowColor: p.color,
-    shadowBlur: 18,
+    shadowBlur: 6,
     alpha: p.invuln > 0 ? 0.82 : 1,
   });
   if (!drewShip) {
   ctx.save();
   ctx.translate(p.x, p.y + idleBob);
   ctx.rotate(p.angle);
-  ctx.shadowBlur = 18;
+  ctx.imageSmoothingEnabled = false;
+  ctx.shadowBlur = 6;
   ctx.shadowColor = p.color;
   ctx.fillStyle = p.invuln > 0 ? "#ffffff" : p.color;
   ctx.beginPath();
@@ -1545,14 +1597,11 @@ function drawPlayer() {
     ctx.strokeStyle = "#77ef8f";
     ctx.lineWidth = 3;
     ctx.shadowColor = "#77ef8f";
-    ctx.shadowBlur = 16;
+    ctx.shadowBlur = 0;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.radius + 8 + p.shieldPulse * 8, 0, TAU);
-    ctx.stroke();
+    ctx.strokeRect(p.x - p.radius - 7, p.y - p.radius - 7, (p.radius + 7) * 2, (p.radius + 7) * 2);
     ctx.restore();
-    assetManager.drawImage(ctx, "effect.shield", p.x, p.y, p.radius + 28 + p.shieldPulse * 8, {
-      shadowColor: "#77ef8f",
-      shadowBlur: 12,
+    assetManager.drawSprite(ctx, "pixel.projectiles", PIXEL_FRAMES.shield, p.x, p.y, 3.3 + p.shieldPulse * 0.25, {
       alpha: 0.2 + p.shieldPulse * 0.18,
     });
   }
@@ -1566,16 +1615,17 @@ function drawPlayer() {
 function drawEnemy(enemy) {
   const hover = enemy.type === "boss" ? 0 : Math.sin(state.time * 3 + enemy.bobSeed) * 3;
   const tellShake = enemy.attackTell > 0 ? rand(-enemy.attackTell * 4, enemy.attackTell * 4) : 0;
-  const assetId = getEnemyAsset(enemy);
-  const assetSize = enemy.type === "boss" ? enemy.radius * 2.35 : enemy.radius * 2.35;
+  const frame = getEnemyFrame(enemy);
+  const scale = enemy.type === "boss" ? Math.max(2.4, enemy.radius / 10) : Math.max(2.2, enemy.radius / 4.2);
   ctx.save();
   ctx.translate(enemy.x + tellShake, enemy.y + hover);
   ctx.rotate(enemy.angle + Math.sin(state.time * 1.6 + enemy.bobSeed) * 0.04);
   ctx.globalAlpha = enemy.spawnGrace > 0 ? 0.55 : 1;
-  ctx.shadowBlur = enemy.hitFlash > 0 ? 22 : enemy.type === "boss" ? 18 : 8;
+  ctx.imageSmoothingEnabled = false;
+  ctx.shadowBlur = enemy.hitFlash > 0 ? 8 : 0;
   ctx.shadowColor = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
   ctx.fillStyle = enemy.hitFlash > 0 ? "#ffffff" : enemy.color;
-  if (!assetManager.drawImage(ctx, assetId, 0, 0, assetSize, { shadowColor: enemy.color, shadowBlur: enemy.type === "boss" ? 18 : 8 })) {
+  if (!assetManager.drawSprite(ctx, "pixel.ships", frame, 0, 0, scale, { alpha: enemy.hitFlash > 0 ? 0.78 : 1 })) {
     if (enemy.type === "boss") drawBossBody(enemy);
     else if (enemy.shape === "rock") drawRock(enemy.radius, enemy.type === "asteroid" ? state.planet.asteroid : enemy.color);
     else if (enemy.shape === "tank") drawTank(enemy.radius);
@@ -1600,11 +1650,11 @@ function drawEnemy(enemy) {
   if (enemy.type === "boss") drawWeakPoint(enemy);
 }
 
-function getEnemyAsset(enemy) {
-  if (enemy.type === "boss") return "enemy.boss";
-  if (enemy.type === "asteroid" || enemy.type === "splitter") return "world.asteroid";
-  if (enemy.type === "shooter" || enemy.type === "laserDrone" || enemy.type === "sniper") return "enemy.ufo";
-  return "enemy.alien";
+function getEnemyFrame(enemy) {
+  if (enemy.type === "boss") return PIXEL_FRAMES.boss;
+  if (enemy.type === "tank" || enemy.type === "shieldCarrier") return PIXEL_FRAMES.tank;
+  if (enemy.type === "shooter" || enemy.type === "laserDrone" || enemy.type === "sniper") return PIXEL_FRAMES.drone;
+  return PIXEL_FRAMES.scout;
 }
 
 function drawBossBody(boss) {
@@ -1712,12 +1762,12 @@ function drawPickup(pickup) {
   const bob = Math.sin(state.time * 5 + pickup.bobSeed) * 5;
   const scale = 1 + Math.sin(state.time * 4 + pickup.bobSeed) * 0.08;
   if (pickup.type === "coin") {
-    if (assetManager.drawImage(ctx, "pickup.coin", pickup.x, pickup.y + bob, pickup.radius * 3.6 * scale, { shadowColor: "#ffd166", shadowBlur: 12 })) return;
+    if (assetManager.drawSprite(ctx, "pixel.misc", PIXEL_FRAMES.coin, pickup.x, pickup.y + bob, 2.6 * scale)) return;
     drawGlowCircle(pickup.x, pickup.y + bob, pickup.radius * scale, "#ffd166");
     ctx.fillStyle = "#5b3d00";
     ctx.fillRect(pickup.x - 1, pickup.y + bob - 4, 2, 8);
   } else {
-    if (assetManager.drawImage(ctx, "pickup.crystal", pickup.x, pickup.y + bob, pickup.radius * 3.8 * scale, { rotation: pickup.spin, shadowColor: "#77ef8f", shadowBlur: 14 })) return;
+    if (assetManager.drawSprite(ctx, "pixel.misc", PIXEL_FRAMES.crystal, pickup.x, pickup.y + bob, 2.8 * scale, { rotation: pickup.spin })) return;
     ctx.save();
     ctx.translate(pickup.x, pickup.y + bob);
     ctx.scale(scale, scale);
@@ -1743,20 +1793,21 @@ function drawMine(mine) {
 
 function drawPlayerBullet(bullet) {
   ctx.save();
-  ctx.shadowBlur = 14;
-  ctx.shadowColor = bullet.color;
-  ctx.strokeStyle = bullet.color;
-  ctx.lineWidth = bullet.radius;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(bullet.x, bullet.y);
-  ctx.lineTo(bullet.x - bullet.vx * 0.025, bullet.y - bullet.vy * 0.025);
-  ctx.stroke();
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate(Math.round(bullet.x), Math.round(bullet.y));
+  ctx.rotate(bullet.angle || Math.atan2(bullet.vy, bullet.vx));
+  ctx.fillStyle = bullet.color;
+  ctx.fillRect(-2, -1, 6, 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(2, 0, 2, 1);
   ctx.restore();
 }
 
 function drawEnemyBullet(bullet) {
-  drawGlowCircle(bullet.x, bullet.y, bullet.radius, bullet.color || "#ffcf5a");
+  ctx.save();
+  ctx.fillStyle = bullet.color || "#ffcf5a";
+  ctx.fillRect(Math.round(bullet.x - bullet.radius), Math.round(bullet.y - bullet.radius), bullet.radius * 2, bullet.radius * 2);
+  ctx.restore();
 }
 
 function drawGlowCircle(x, y, radius, color) {
@@ -1796,7 +1847,7 @@ function drawParticle(particle) {
 function drawNumbers() {
   ctx.save();
   ctx.textAlign = "center";
-  ctx.font = "700 14px system-ui, sans-serif";
+  ctx.font = '8px "Press Start 2P", monospace';
   for (const number of state.numbers) {
     ctx.globalAlpha = clamp(number.life / number.maxLife, 0, 1);
     ctx.fillStyle = number.color;
@@ -1816,14 +1867,20 @@ function loop(now) {
 }
 
 window.addEventListener("keydown", (event) => {
-  keys.add(event.key.toLowerCase());
-  if (event.key.toLowerCase() === "p") pauseGame();
+  const key = event.key.toLowerCase();
+  if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) event.preventDefault();
+  keys.add(key);
+  if (key === "p") pauseGame();
 });
 
-window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+window.addEventListener("keyup", (event) => {
+  const key = event.key.toLowerCase();
+  if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) event.preventDefault();
+  keys.delete(key);
+});
 window.addEventListener("resize", () => {
   resizeCanvas();
-  if (state) state.background = createBackground(canvas.clientWidth, canvas.clientHeight, state.planetIndex);
+  if (state) state.background = createBackground(canvas.width, canvas.height, state.planetIndex);
   draw();
 });
 

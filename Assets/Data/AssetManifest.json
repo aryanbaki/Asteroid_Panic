@@ -7,6 +7,13 @@
       "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
       "site": "https://game-icons.net",
       "notes": "SVG icons are used as a cohesive commercial-use vector sprite set. Attribution is required and documented in Assets/Documentation/LICENSES.md."
+    },
+    "pixelShmup": {
+      "name": "8x8 Space Shooter Asset Pack",
+      "author": "Gustavo Vituri",
+      "license": "Free for commercial use and modification; no standalone redistribution",
+      "site": "https://gvituri.itch.io/space-shooter",
+      "notes": "The source page explicitly permits personal and commercial projects and modification. Credit is appreciated but not required. Documentation is included in Assets/Documentation/LICENSES.md."
     }
   },
   "images": {
@@ -86,6 +93,36 @@
       "title": "Open Treasure Chest",
       "author": "Delapouite",
       "url": "https://game-icons.net/1x1/delapouite/open-treasure-chest.html"
+    },
+    "pixel.backgrounds": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_BackGrounds.png",
+      "source": "pixelShmup",
+      "title": "Pixel starfield backgrounds"
+    },
+    "pixel.ships": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Ships.png",
+      "source": "pixelShmup",
+      "title": "Pixel ships and bosses"
+    },
+    "pixel.projectiles": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Projectiles.png",
+      "source": "pixelShmup",
+      "title": "Pixel projectiles and effects"
+    },
+    "pixel.misc": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Miscellaneous.png",
+      "source": "pixelShmup",
+      "title": "Pixel pickups and effects"
+    },
+    "pixel.ui": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_IU.png",
+      "source": "pixelShmup",
+      "title": "Pixel interface elements"
+    },
+    "pixel.characters": {
+      "path": "Assets/Art/PixelShmup/SpaceShooterAssets/SpaceShooterAssetPack_Characters.png",
+      "source": "pixelShmup",
+      "title": "Pixel alien characters"
     }
   },
   "audio": {},
