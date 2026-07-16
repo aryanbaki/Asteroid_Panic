@@ -17,6 +17,16 @@ Then open:
 http://localhost:4173
 ```
 
+## GitHub Pages
+
+The included GitHub Actions workflow deploys this static game whenever `main` changes.
+After the first push, open the repository's **Settings > Pages**, set **Source** to
+**GitHub Actions**, and GitHub will publish the game at:
+
+```text
+https://aryanbaki.github.io/Asteroid_Panic/
+```
+
 ## Controls
 
 - `W` / Up: thrust forward. `S` / Down: reverse/brake.
